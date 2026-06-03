@@ -1,17 +1,27 @@
 import streamlit as st
 from datetime import datetime
 import urllib.parse
+import pandas as pd
+from streamlit_gsheets import GSheetsConnection
 
 # =========================================================
-# 1. TU CLASE CLIENTE (Lógica de negocio ya integrada)
+# 1. TU CLASE CLIENTE (Adaptada para leer fechas guardadas)
 # =========================================================
 class Cliente:
-    def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco):
+    def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra=None):
         self.Nombre_Cliente = Nombre_Cliente
         self.Tel_Correo = Tel_Correo
         self.Precio_Especial = Precio_Especial
         self.Cantidad_Frasco = Cantidad_Frasco
-        self.Fecha_Compra = datetime.now()
+        
+        # Si la fecha viene de la base de datos, la convertimos; si es nuevo, toma la fecha de hoy
+        if Fecha_Compra:
+            if isinstance(Fecha_Compra, str):
+                self.Fecha_Compra = datetime.strptime(Fecha_Compra, "%Y-%m-%d %H:%M:%S")
+            else:
+                self.Fecha_Compra = Fecha_Compra
+        else:
+            self.Fecha_Compra = datetime.now()
         
     def verificar_alerta_visual(self):
         fecha_actual = datetime.now()
@@ -33,17 +43,59 @@ class Cliente:
 
 
 # =========================================================
-# 2. MEMORIA DE LA APP (Para que no se borren al hacer clic)
+# 2. CONEXIÓN A LA BASE DE DATOS (Google Sheets)
 # =========================================================
-if "mis_clientes" not in st.session_state:
-    st.session_state.mis_clientes = []
+# Creamos la conexión con la hoja en la nube
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Función para leer los datos actuales de la nube
+def cargar_clientes_nube():
+    try:
+        # Lee la hoja de cálculo
+        df = conn.read(ttl="5s") # Se actualiza cada 5 segundos para ver cambios del otro celular
+        clientes = []
+        for index, row in df.iterrows():
+            if pd.notna(row['Nombre']):
+                c = Cliente(
+                    Nombre_Cliente=row['Nombre'],
+                    Tel_Correo=str(row['Telefono']),
+                    Precio_Especial=int(row['Precio']),
+                    Cantidad_Frasco=int(row['Cantidad']),
+                    Fecha_Compra=row['Fecha']
+                )
+                clientes.append(c)
+        return clientes
+    except Exception:
+        # Si la hoja está vacía al principio, regresa una lista vacía
+        return []
+
+# Función para guardar un nuevo cliente en la nube
+def guardar_cliente_nube(nuevo_cliente):
+    # 1. Traer los datos existentes para no borrarlos
+    try:
+        df_existente = conn.read()
+    except Exception:
+        df_existente = pd.DataFrame(columns=['Nombre', 'Telefono', 'Precio', 'Cantidad', 'Fecha'])
+    
+    # 2. Crear el nuevo renglón
+    nuevo_renglon = pd.DataFrame([{
+        'Nombre': nuevo_cliente.Nombre_Cliente,
+        'Telefono': nuevo_cliente.Tel_Correo,
+        'Precio': nuevo_cliente.Precio_Especial,
+        'Cantidad': nuevo_cliente.Cantidad_Frasco,
+        'Fecha': nuevo_cliente.Fecha_Compra.strftime("%Y-%m-%d %H:%M:%S")
+    }])
+    
+    # 3. Juntar todo y subirlo de regreso a la nube
+    df_final = pd.concat([df_existente, nuevo_renglon], ignore_index=True)
+    conn.update(data=df_final)
 
 
 # =========================================================
-# 3. INTERFAZ GRÁFICA (Diseño de Alta Gama para Andalucía Beauty)
+# 3. INTERFAZ GRÁFICA (Andalucía Beauty)
 # =========================================================
 
-# Contenedor estilizado que simula el branding físico con código CSS de alta calidad
+# Contenedor estilizado elegante
 with st.container():
     st.markdown(
         """
@@ -87,53 +139,51 @@ with st.container():
                 margin-top: 10px;
                 margin-bottom: 0;
                 opacity: 0.8;
-            ">Control de Clientes y Seguimiento</p>
+            ">Control de Clientes y Seguimiento de Alta Gama</p>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-# Creamos dos pestañas para que la app se vea ordenada
 pestaña1, pestaña2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
 
 # --- PESTAÑA 1: FORMULARIO DE REGISTRO ---
 with pestaña1:
     st.header("Nuevo Registro")
     
-    # Creamos las cajas de texto y números en la pantalla
     nombre = st.text_input("Nombre del Cliente:")
     telefono = st.text_input("Teléfono (ej. 52133xxxxxxx):")
     precio = st.number_input("Precio Especial ($):", min_value=0, value=0)
     cantidad = st.number_input("Cantidad de Frascos:", min_value=1, value=1)
     
-    # Botón para guardar
     if st.button("Guardar Cliente"):
         if nombre and telefono:
-            # Creamos el cliente y lo metemos a la lista de memoria
-            nuevo = Cliente(nombre, telefono, precio, cantidad)
-            st.session_state.mis_clientes.append(nuevo)
-            st.success(f"¡{nombre} registrado con éxito!")
+            with st.spinner("Guardando de forma segura en la nube..."):
+                # Creamos el objeto cliente
+                nuevo = Cliente(nombre, telefono, precio, cantidad)
+                # Lo mandamos directo a Google Sheets
+                guardar_cliente_nube(nuevo)
+                st.success(f"¡{nombre} guardado en la base de datos con éxito!")
         else:
             st.error("Por favor, escribe el nombre y el teléfono.")
 
 # --- PESTAÑA 2: LISTA DE SEGUIMIENTO ---
 with pestaña2:
-    st.header("Clientes en Seguimiento")
+    st.header("Clientes en Seguimiento (Tiempo Real)")
     
-    if len(st.session_state.mis_clientes) == 0:
-        st.info("No hay clientes registrados todavía.")
+    # Cargamos en tiempo real lo que esté guardado en la nube
+    mis_clientes = cargar_clientes_nube()
+    
+    if len(mis_clientes) == 0:
+        st.info("No hay clientes registrados todavía en la base de datos.")
     else:
-        # Dibujamos una tarjeta visual por cada cliente en la lista
-        for cliente in st.session_state.mis_clientes:
+        # Dibujamos las tarjetas visuales
+        for cliente in mis_clientes:
             with st.container():
                 st.write(f"### 👤 {cliente.Nombre_Cliente}")
                 st.write(f"**Frascos:** {cliente.Cantidad_Frasco} | **Precio:** ${cliente.Precio_Especial}")
-                
-                # Muestra si está al corriente o en alerta
                 st.write(cliente.verificar_alerta_visual())
                 
-                # Crea el botón azul de internet que abre su WhatsApp directo
                 link = cliente.generar_link_whatsapp()
                 st.link_button("💬 Enviar WhatsApp", link)
-                # se corre con streamlit run app_visual.py
-                st.divider() # Línea para separar un cliente de otro
+                st.divider()
