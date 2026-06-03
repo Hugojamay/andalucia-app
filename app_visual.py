@@ -3,6 +3,7 @@ from datetime import datetime
 import urllib.parse
 import pandas as pd
 import requests
+from streamlit_gsheets import GSheetsConnection
 
 # ==========================================
 # 1. TU CLASE CLIENTE
@@ -34,33 +35,35 @@ class Cliente:
 # ==========================================
 def cargar_clientes_nube():
     try:
-        # CORRECCIÓN: Conexión dinámica usando los Secrets que configuramos
-        url_csv = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        df = pd.read_csv(url_csv, keep_default_na=False)
+        # Usamos el conector oficial de Streamlit para evitar fallas entre pestañas del Excel
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["spreadsheet"], ttl=5)
         clientes = []
         
-        if not df.empty:
+        if df is not None and not df.empty:
             df.columns = [str(c).strip().upper() for c in df.columns]
             
             if 'NOMBRE' in df.columns:
                 for index, row in df.iterrows():
                     nombre_val = str(row['NOMBRE']).strip()
-                    if nombre_val == "" or nombre_val.upper() == "NOMBRE":
+                    if nombre_val == "" or nombre_val.upper() == "NOMBRE" or nombre_val.upper() == "NAN":
                         continue
                     
                     tel_val = str(row['TELEFONO']).strip() if 'TELEFONO' in df.columns else ""
+                    if tel_val.upper() == "NAN": tel_val = ""
                     
                     try:
-                        precio_val = int(float(str(row['PRECIO']))) if 'PRECIO' in df.columns and str(row['PRECIO']).strip() != "" else 0
+                        precio_val = int(float(str(row['PRECIO']))) if 'PRECIO' in df.columns and str(row['PRECIO']).strip() != "" and str(row['PRECIO']).upper() != "NAN" else 0
                     except:
                         precio_val = 0
                         
                     try:
-                        cantidad_val = int(float(str(row['CANTIDAD']))) if 'CANTIDAD' in df.columns and str(row['CANTIDAD']).strip() != "" else 1
+                        cantidad_val = int(float(str(row['CANTIDAD']))) if 'CANTIDAD' in df.columns and str(row['CANTIDAD']).strip() != "" and str(row['CANTIDAD']).upper() != "NAN" else 1
                     except:
                         cantidad_val = 1
                         
                     fecha_val = str(row['FECHA']).strip() if 'FECHA' in df.columns else None
+                    if fecha_val and fecha_val.upper() == "NAN": fecha_val = None
                     
                     c = Cliente(
                         Nombre_Cliente=nombre_val,
@@ -76,8 +79,8 @@ def cargar_clientes_nube():
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
     try:
-        # CORRECCIÓN: Enlace dinámico de Apps Script desde Secrets
-        url_script = st.secrets["connections"]["gsheets"]["script_url"]
+        # Enlace directo y limpio de tu Apps Script para evitar errores de dedo del Secret viejo
+        url_script = "https://script.google.com/macros/s/AKfycbz24tc1IlClP9Nasm_e0gO9E_c0PvqgsSM1kjqlqbAH1LOus76PA3uPqRQwgQszELrUC/exec"
         payload = {
             "nombre": nombre,
             "telefono": telefono,
@@ -94,7 +97,7 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty - Control", page_icon="✨", layout="centered")
 
-# LOGO VERDE ORIGINAL PROPIO (Formato HTML nativo y seguro)
+# LOGO VERDE ORIGINAL PROPIO
 st.html("""
     <div style="background-color: #798670; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
         <h1 style="color: white; font-family: 'Georgia', serif; font-size: 60px; margin: 0; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.4); display: inline-block; padding-bottom: 5px; width: 80px;">A</h1>
@@ -103,7 +106,6 @@ st.html("""
     </div>
 """)
 
-# Pestañas de Navegación
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
 
 with tab1:
@@ -133,7 +135,7 @@ with tab2:
     lista_clientes = cargar_clientes_nube()
     
     if not lista_clientes:
-        st.info("No hay clientes registrados todavía o conectando de forma directa...")
+        st.info("No hay clientes registrados todavía o la pestaña principal está vacía.")
     else:
         for cliente in lista_clientes:
             dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
