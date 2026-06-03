@@ -19,7 +19,10 @@ class Cliente:
                 try:
                     self.Fecha_Compra = datetime.strptime(Fecha_Compra, "%Y-%m-%d %H:%M:%S")
                 except ValueError:
-                    self.Fecha_Compra = datetime.now()
+                    try:
+                        self.Fecha_Compra = datetime.strptime(Fecha_Compra, "%Y-%m-%d")
+                    except ValueError:
+                        self.Fecha_Compra = datetime.now()
             else:
                 self.Fecha_Compra = Fecha_Compra
         else:
@@ -45,11 +48,17 @@ class Cliente:
 
 
 # =========================================================
-# 2. CONEXIÓN A LA BASE DE DATOS (Lectura y Escritura Alternativa)
+# 2. CONEXIÓN A LA BASE DE DATOS (Lectura y Escritura Activa)
 # =========================================================
 def cargar_clientes_nube():
     try:
-        url_base = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        # Intentamos obtener la url desde secrets (Nube o local)
+        if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+            url_base = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        else:
+            # Respaldo directo por si pruebas en localhost sin archivo local de secrets
+            url_base = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/edit?usp=sharing"
+            
         if "/edit" in url_base:
             url_csv = url_base.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
         else:
@@ -58,40 +67,46 @@ def cargar_clientes_nube():
         df = pd.read_csv(url_csv)
         clientes = []
         
-        for index, row in df.iterrows():
-            if 'Nombre' in df.columns and pd.notna(row['Nombre']):
-                c = Cliente(
-                    Nombre_Cliente=row['Nombre'],
-                    Tel_Correo=str(row['Telefono']),
-                    Precio_Especial=int(row['Precio']) if 'Precio' in df.columns else 0,
-                    Cantidad_Frasco=int(row['Cantidad']) if 'Cantidad' in df.columns else 1,
-                    Fecha_Compra=row['Fecha'] if 'Fecha' in df.columns else None
-                )
-                clientes.append(c)
+        # Mapeo flexible de columnas basado en tu imagen real de Drive
+        col_nombre = 'NOMBRE' if 'NOMBRE' in df.columns else ('Nombre' if 'Nombre' in df.columns else None)
+        col_telef  = 'TELEFONO' if 'TELEFONO' in df.columns else ('Telefono' if 'Telefono' in df.columns else None)
+        col_precio = 'PRECIO' if 'PRECIO' in df.columns else ('Precio' if 'Precio' in df.columns else None)
+        col_cant   = 'CANTIDAD' if 'CANTIDAD' in df.columns else ('Cantidad' if 'Cantidad' in df.columns else None)
+        col_fecha  = 'FECHA' if 'FECHA' in df.columns else ('Fecha' if 'Fecha' in df.columns else None)
+        
+        if col_nombre:
+            for index, row in df.iterrows():
+                if pd.notna(row[col_nombre]) and str(row[col_nombre]).strip() != "":
+                    c = Cliente(
+                        Nombre_Cliente=row[col_nombre],
+                        Tel_Correo=str(row[col_telef]) if col_telef else "",
+                        Precio_Especial=int(row[col_precio]) if col_precio and pd.notna(row[col_precio]) else 0,
+                        Cantidad_Frasco=int(row[col_cant]) if col_cant and pd.notna(row[col_cant]) else 1,
+                        Fecha_Compra=row[col_fecha] if col_fecha and pd.notna(row[col_fecha]) else None
+                    )
+                    clientes.append(c)
         return clientes
     except Exception as e:
         return []
 
 def guardar_cliente_nube(nuevo_cliente):
     try:
-        # Intentamos usar la URL del script de automatización si está configurado en Secrets
-        if "script_url" in st.secrets["connections"]["gsheets"]:
+        # Intentamos jalar la URL del script de automatización
+        if "connections" in st.secrets and "gsheets" in st.secrets["connections"] and "script_url" in st.secrets["connections"]["gsheets"]:
             url_script = st.secrets["connections"]["gsheets"]["script_url"]
-            datos = {
-                "Nombre": nuevo_cliente.Nombre_Cliente,
-                "Telefono": nuevo_cliente.Tel_Correo,
-                "Precio": nuevo_cliente.Precio_Especial,
-                "Cantidad": nuevo_cliente.Cantidad_Frasco,
-                "Fecha": nuevo_cliente.Fecha_Compra.strftime("%Y-%m-%d %H:%M:%S")
-            }
-            response = requests.post(url_script, json=datos)
-            return response.status_code == 200
         else:
-            # Si no hay script, guardamos localmente en memoria de la sesión actual temporalmente
-            if "backup_clientes" not in st.session_state:
-                st.session_state.backup_clientes = []
-            st.session_state.backup_clientes.append(nuevo_cliente)
-            return True
+            # Respaldo para que funcione también en tu localhost si no tienes secrets local
+            url_script = "https://script.google.com/macros/s/AKfycbkpz00uOvEAo_EK3jQy6lwzLh1dn6qDIYTywr7qbqxFwqwJWlXYKGVwraOBk57AalGUA/exec"
+            
+        datos = {
+            "Nombre": nuevo_cliente.Nombre_Cliente,
+            "Telefono": nuevo_cliente.Tel_Correo,
+            "Precio": nuevo_cliente.Precio_Especial,
+            "Cantidad": nuevo_cliente.Cantidad_Frasco,
+            "Fecha": nuevo_cliente.Fecha_Compra.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        response = requests.post(url_script, json=datos)
+        return response.status_code == 200
     except Exception as e:
         return False
 
@@ -159,33 +174,31 @@ with pestaña1:
     
     if st.button("Guardar Cliente"):
         if nombre and telefono:
-            nuevo = Cliente(nombre, telefono, precio, quantity)
-            exito = guardar_cliente_nube(nuevo)
+            nuevo = Cliente(nombre, telefono, precio, cantidad)
+            with st.spinner("Guardando en la base de datos de Google Drive..."):
+                exito = guardar_cliente_nube(nuevo)
             if exito:
-                st.success(f"¡{nombre} registrado con éxito y listo para seguimiento!")
+                st.success(f"¡{nombre} registrado con éxito en Google Drive!")
             else:
-                st.warning(f"Guardado localmente. Falta vincular el canal de escritura.")
+                st.error("Error de conexión. Revisa que el Apps Script de Google esté bien configurado.")
         else:
             st.error("Por favor, escribe el nombre y el teléfono.")
 
 with pestaña2:
     st.header("Clientes en Seguimiento (Base de Datos)")
     
-    mis_clientes = cargar_clientes_nube()
-    
-    # Combinamos datos remotos de Google Drive con los agregados temporalmente en la sesión
-    if "backup_clientes" in st.session_state:
-        mis_clientes.extend(st.session_state.backup_clientes)
+    with st.spinner("Cargando clientes en tiempo real desde Google Drive..."):
+        mis_clientes = cargar_clientes_nube()
     
     if len(mis_clientes) == 0:
-        st.info("No hay clientes registrados todavía. Agrega uno en la pestaña anterior.")
+        st.info("No hay clientes registrados todavía en tu archivo de Excel o las columnas no coinciden.")
     else:
         for cliente in mis_clientes:
             with st.container():
                 st.write(f"### 👤 {cliente.Nombre_Cliente}")
-                st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Frascos:** {cliente.Cantidad_Frasco}")
+                st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Frascos:** {cliente.Cantidad_Frasco} | **Precio:** ${cliente.Precio_Especial}")
                 st.write(cliente.verificar_alerta_visual())
                 
                 link = cliente.generar_link_whatsapp()
-                st.link_button("💬 Enviar WhatsApp de Seguimiento", link)
+                st.link_button(f"💬 Enviar WhatsApp a {cliente.Nombre_Cliente}", link)
                 st.divider()
