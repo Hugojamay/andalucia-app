@@ -5,7 +5,7 @@ import pandas as pd
 import requests
 
 # ==========================================
-# 1. TU CLASE CLIENTE
+# 1. TU CLASE CLIENTE ORIGINAL
 # ==========================================
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra=None):
@@ -30,21 +30,24 @@ class Cliente:
             self.Fecha_Compra = datetime.now()
 
 # ==========================================
-# 2. FUNCIONES DE CONEXIÓN (Carga de Datos)
+# 2. FUNCIONES DE CONEXIÓN CORREGIDAS
 # ==========================================
 def cargar_clientes_nube():
     try:
-        # URL Directa para exportar el CSV de tu hoja de cálculo activa
+        # Leemos el archivo usando la URL de exportación directa en formato CSV
+        # Esto soluciona la pestaña de seguimiento sin usar la librería 'st-gsheets-connection'
         url_csv = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/export?format=csv"
         df = pd.read_csv(url_csv, keep_default_na=False)
         clientes = []
         
         if not df.empty:
+            # Forzamos que las columnas se lean limpias y en mayúsculas
             df.columns = [str(c).strip().upper() for c in df.columns]
             
             if 'NOMBRE' in df.columns:
                 for index, row in df.iterrows():
                     nombre_val = str(row['NOMBRE']).strip()
+                    # Ignoramos filas vacías o renglones repetidos del encabezado
                     if nombre_val == "" or nombre_val.upper() == "NOMBRE":
                         continue
                     
@@ -72,42 +75,39 @@ def cargar_clientes_nube():
                     clientes.append(c)
         return clientes
     except Exception as e:
+        # Si hay un error de lectura, mostramos un aviso discreto en la consola
         return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
-    # Intentamos primero con la URL guardada en tus secrets, si no, usamos la directa.
     try:
-        url_script = st.secrets["connections"]["gsheets"]["script_url"]
-    except:
-        url_script = "https://script.google.com/macros/s/AKfycbxkpz0u0vEAo_EK3jQy6lwLh1dn6qDIYtywr7qbqXFwqwJWlXYKGVwraOBk57Aa1GUA/exec"
-    
-    payload = {
-        "nombre": nombre,
-        "telefono": telefono,
-        "precio": precio,
-        "cantidad": cantidad
-    }
-    try:
-        # Forzamos los headers correctos para evitar bloqueos de Google
-        headers = {"Content-Type": "application/json"}
-        response = requests.post(url_script, json=payload, headers=headers, timeout=10)
-        return response.status_code == 200 or "success" in response.text.lower()
+        # Volvemos a jalar la URL exactamente como la tenías en tus Secrets originales
+        url_script = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        
+        payload = {
+            "nombre": nombre,
+            "telefono": telefono,
+            "precio": precio,
+            "cantidad": cantidad
+        }
+        
+        response = requests.post(url_script, json=payload, timeout=10)
+        return response.status_code == 200
     except:
         return False
 
 # ==========================================
-# 3. INTERFAZ VISUAL DE STREAMLIT
+# 3. INTERFAZ VISUAL DE STREAMLIT (Sintaxis limpia)
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty - Control", page_icon="✨", layout="centered")
 
-# Tu Logo Verde Institucional
-st.html("""
+# Tu Logo Verde Original
+st.markdown("""
     <div style="background-color: #798670; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
         <h1 style="color: white; font-family: 'Georgia', serif; font-size: 60px; margin: 0; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.4); display: inline-block; padding-bottom: 5px; width: 80px;">A</h1>
         <h2 style="color: white; font-family: 'Arial', sans-serif; font-size: 24px; letter-spacing: 4px; margin-top: 15px; margin-bottom: 5px; font-weight: 300;">ANDALUCÍA BEAUTY</h2>
         <p style="color: #E2E8F0; font-style: italic; font-size: 14px; margin: 0;">Control de Clientes y Seguimiento de Alta Gama</p>
     </div>
-""")
+""", unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
 
@@ -123,7 +123,7 @@ with tab1:
         
         if enviado:
             if nombre and telefono:
-                with st.spinner("Guardando en la base de datos..."):
+                with st.spinner("Guardando registro..."):
                     exito = registrar_cliente_script(nombre, telefono, precio, cantidad)
                 if exito:
                     st.success(f"¡{nombre} procesado con éxito!")
@@ -151,7 +151,7 @@ with tab2:
             else:
                 st.success(f"✅ **{cliente.Nombre_Cliente}** — Compra reciente hace {dias_pasados} días.")
             
-            st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Última Compra:** {cliente.Fecha_Compra.strftime('%Y-%m-%d %H:%M:%S')} | **Frascos:** {cliente.Cantidad_Frasco}")
+            st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Última Compra:** {cliente.Fecha_Compra.strftime('%Y-%m-%d')} | **Frascos:** {cliente.Cantidad_Frasco}")
             
             texto_wa = f"¡Hola {cliente.Nombre_Cliente}! Te saludamos de Andalucía Beauty. Esperamos que estés disfrutando los resultados de tu crema. Cuéntanos, ¿cómo va tu tratamiento?"
             texto_encoded = urllib.parse.quote(texto_wa)
