@@ -34,7 +34,8 @@ class Cliente:
 # ==========================================
 def cargar_clientes_nube():
     try:
-        url_csv = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/export?format=csv&gid=0"
+        # CORRECCIÓN: Conexión dinámica usando los Secrets que configuramos
+        url_csv = st.secrets["connections"]["gsheets"]["spreadsheet"]
         df = pd.read_csv(url_csv, keep_default_na=False)
         clientes = []
         
@@ -74,14 +75,15 @@ def cargar_clientes_nube():
         return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
-    url_script = "https://script.google.com/macros/s/AKfycbz24tc1IlClP9Nasm_e0gO9E_c0PvqgsSM1kjqlqbAH1LOus76PA3uPqRQwgQszELrUC/exec"
-    payload = {
-        "nombre": nombre,
-        "telefono": telefono,
-        "precio": precio,
-        "cantidad": cantidad
-    }
     try:
+        # CORRECCIÓN: Enlace dinámico de Apps Script desde Secrets
+        url_script = st.secrets["connections"]["gsheets"]["script_url"]
+        payload = {
+            "nombre": nombre,
+            "telefono": telefono,
+            "precio": precio,
+            "cantidad": cantidad
+        }
         response = requests.post(url_script, json=payload)
         return response.status_code == 200
     except:
@@ -92,7 +94,7 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty - Control", page_icon="✨", layout="centered")
 
-# REGRESA EL LOGO VERDE ORIGINAL PROPIO (Usando st.html de forma segura)
+# LOGO VERDE ORIGINAL PROPIO (Formato HTML nativo y seguro)
 st.html("""
     <div style="background-color: #798670; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
         <h1 style="color: white; font-family: 'Georgia', serif; font-size: 60px; margin: 0; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.4); display: inline-block; padding-bottom: 5px; width: 80px;">A</h1>
@@ -101,7 +103,7 @@ st.html("""
     </div>
 """)
 
-# Pestañas
+# Pestañas de Navegación
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
 
 with tab1:
