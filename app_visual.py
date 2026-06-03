@@ -40,7 +40,7 @@ def cargar_clientes_nube():
         sheet_name = "Base de Datos Andalucia Clientes"
         
         # URL mágica para leer una pestaña específica por nombre
-        url_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={urllib.parse.quote(sheet_name)}"
+       url_csv = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqDrMcAlzp02km9pBIMls0I8OxKgRMySxN5GhbWgd08nj6sj5hn8BstFTti5go4g7T6x1NsHUUU_BE/pub?output=csv"
         
         df = pd.read_csv(url_csv, keep_default_na=False)
         
