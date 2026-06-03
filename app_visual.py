@@ -34,7 +34,7 @@ class Cliente:
 # ==========================================
 def cargar_clientes_nube():
     try:
-        # URL Directa para exportar el CSV sin importar los Secrets
+        # URL Directa para exportar el CSV de tu hoja de cálculo activa
         url_csv = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/export?format=csv"
         df = pd.read_csv(url_csv, keep_default_na=False)
         clientes = []
@@ -75,7 +75,7 @@ def cargar_clientes_nube():
         return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
-    # URL REAL Y DIRECTA de tu Apps Script (Saneada y sin errores de Secrets)
+    # URL REAL Y DIRECTA de tu Apps Script
     url_script = "https://script.google.com/macros/s/AKfycbz24tc1IlClP9Nasm_e0gO9E_c0PvqgsSM1kjqlqbAH1LOus76PA3uPqRQwgQszELrUC/exec"
     payload = {
         "nombre": nombre,
@@ -94,7 +94,7 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty - Control", page_icon="✨", layout="centered")
 
-# Tu Logo Verde Institucional Elegante Impecable
+# Tu Logo Verde Institucional
 st.html("""
     <div style="background-color: #798670; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
         <h1 style="color: white; font-family: 'Georgia', serif; font-size: 60px; margin: 0; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.4); display: inline-block; padding-bottom: 5px; width: 80px;">A</h1>
@@ -132,7 +132,7 @@ with tab2:
     lista_clientes = cargar_clientes_nube()
     
     if not lista_clientes:
-        st.info("No hay clientes registrados todavía o conectando de forma directa...")
+        st.info("No hay clientes registrados todavía o la pestaña principal está vacía.")
     else:
         for cliente in lista_clientes:
             dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
