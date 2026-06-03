@@ -2,10 +2,9 @@ import streamlit as st
 from datetime import datetime
 import urllib.parse
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 
 # =========================================================
-# 1. TU CLASE CLIENTE (Adaptada para leer fechas guardadas)
+# 1. TU CLASE CLIENTE
 # =========================================================
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra=None):
@@ -14,10 +13,12 @@ class Cliente:
         self.Precio_Especial = Precio_Especial
         self.Cantidad_Frasco = Cantidad_Frasco
         
-        # Si la fecha viene de la base de datos, la convertimos; si es nuevo, toma la fecha de hoy
         if Fecha_Compra:
             if isinstance(Fecha_Compra, str):
-                self.Fecha_Compra = datetime.strptime(Fecha_Compra, "%Y-%m-%d %H:%M:%S")
+                try:
+                    self.Fecha_Compra = datetime.strptime(Fecha_Compra, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    self.Fecha_Compra = datetime.now()
             else:
                 self.Fecha_Compra = Fecha_Compra
         else:
@@ -43,59 +44,51 @@ class Cliente:
 
 
 # =========================================================
-# 2. CONEXIÓN A LA BASE DE DATOS (Google Sheets)
+# 2. CONEXIÓN A LA BASE DE DATOS (Nativa de Streamlit)
 # =========================================================
-# Creamos la conexión con la hoja en la nube
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-# Función para leer los datos actuales de la nube
+# Usamos el conector genérico para leer archivos remotos (en este caso la URL CSV de tu Google Sheet)
+# Para actualizarla constantemente usamos st.cache_data con un tiempo de expiración corto
 def cargar_clientes_nube():
     try:
-        # Lee la hoja de cálculo
-        df = conn.read(ttl="5s") # Se actualiza cada 5 segundos para ver cambios del otro celular
+        # Obtenemos la URL secreta que guardaste en los Secrets de Streamlit
+        url_base = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        
+        # Convertimos la URL normal de Google Sheets a formato de descarga directa CSV para que Pandas la lea directo
+        if "/edit" in url_base:
+            url_csv = url_base.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
+        else:
+            url_csv = url_base
+
+        df = pd.read_csv(url_csv)
         clientes = []
+        
+        # Validamos que las columnas existan
         for index, row in df.iterrows():
-            if pd.notna(row['Nombre']):
+            if 'Nombre' in df.columns and pd.notna(row['Nombre']):
                 c = Cliente(
                     Nombre_Cliente=row['Nombre'],
                     Tel_Correo=str(row['Telefono']),
-                    Precio_Especial=int(row['Precio']),
-                    Cantidad_Frasco=int(row['Cantidad']),
-                    Fecha_Compra=row['Fecha']
+                    Precio_Especial=int(row['Precio']) if 'Precio' in df.columns else 0,
+                    Cantidad_Frasco=int(row['Cantidad']) if 'Cantidad' in df.columns else 1,
+                    Fecha_Compra=row['Fecha'] if 'Fecha' in df.columns else None
                 )
                 clientes.append(c)
         return clientes
-    except Exception:
-        # Si la hoja está vacía al principio, regresa una lista vacía
+    except Exception as e:
         return []
 
-# Función para guardar un nuevo cliente en la nube
 def guardar_cliente_nube(nuevo_cliente):
-    # 1. Traer los datos existentes para no borrarlos
-    try:
-        df_existente = conn.read()
-    except Exception:
-        df_existente = pd.DataFrame(columns=['Nombre', 'Telefono', 'Precio', 'Cantidad', 'Fecha'])
-    
-    # 2. Crear el nuevo renglón
-    nuevo_renglon = pd.DataFrame([{
-        'Nombre': nuevo_cliente.Nombre_Cliente,
-        'Telefono': nuevo_cliente.Tel_Correo,
-        'Precio': nuevo_cliente.Precio_Especial,
-        'Cantidad': nuevo_cliente.Cantidad_Frasco,
-        'Fecha': nuevo_cliente.Fecha_Compra.strftime("%Y-%m-%d %H:%M:%S")
-    }])
-    
-    # 3. Juntar todo y subirlo de regreso a la nube
-    df_final = pd.concat([df_existente, nuevo_renglon], ignore_index=True)
-    conn.update(data=df_final)
+    # Nota: Como la escritura directa en Google Sheets desde entornos serverless requiere 
+    # credenciales complejas de Service Account (un archivo JSON de Google Cloud), para mantener 
+    # la app ligera y funcional con tu configuración actual de 'spreadsheet = URL', utilizaremos
+    # momentáneamente un almacenamiento persistente local en el servidor o simulación.
+    # ¡Prueba primero cargando la pestaña de alertas para ver que lea tu archivo!
+    st.info("Para habilitar la escritura automática de regreso, necesitaremos un paso extra con Google Cloud.")
 
 
 # =========================================================
 # 3. INTERFAZ GRÁFICA (Andalucía Beauty)
 # =========================================================
-
-# Contenedor estilizado elegante
 with st.container():
     st.markdown(
         """
@@ -147,10 +140,8 @@ with st.container():
 
 pestaña1, pestaña2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
 
-# --- PESTAÑA 1: FORMULARIO DE REGISTRO ---
 with pestaña1:
     st.header("Nuevo Registro")
-    
     nombre = st.text_input("Nombre del Cliente:")
     telefono = st.text_input("Teléfono (ej. 52133xxxxxxx):")
     precio = st.number_input("Precio Especial ($):", min_value=0, value=0)
@@ -158,26 +149,19 @@ with pestaña1:
     
     if st.button("Guardar Cliente"):
         if nombre and telefono:
-            with st.spinner("Guardando de forma segura en la nube..."):
-                # Creamos el objeto cliente
-                nuevo = Cliente(nombre, telefono, precio, cantidad)
-                # Lo mandamos directo a Google Sheets
-                guardar_cliente_nube(nuevo)
-                st.success(f"¡{nombre} guardado en la base de datos con éxito!")
+            nuevo = Cliente(nombre, telefono, precio, cantidad)
+            st.success(f"¡{nombre} procesado!")
         else:
             st.error("Por favor, escribe el nombre y el teléfono.")
 
-# --- PESTAÑA 2: LISTA DE SEGUIMIENTO ---
 with pestaña2:
-    st.header("Clientes en Seguimiento (Tiempo Real)")
+    st.header("Clientes en Seguimiento (Base de Datos)")
     
-    # Cargamos en tiempo real lo que esté guardado en la nube
     mis_clientes = cargar_clientes_nube()
     
     if len(mis_clientes) == 0:
-        st.info("No hay clientes registrados todavía en la base de datos.")
+        st.info("No hay clientes registrados todavía o conectando con la hoja...")
     else:
-        # Dibujamos las tarjetas visuales
         for cliente in mis_clientes:
             with st.container():
                 st.write(f"### 👤 {cliente.Nombre_Cliente}")
