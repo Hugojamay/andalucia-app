@@ -75,8 +75,12 @@ def cargar_clientes_nube():
         return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
-    # URL REAL Y DIRECTA de tu Apps Script
-    url_script = "https://script.google.com/macros/s/AKfycbz24tc1IlClP9Nasm_e0gO9E_c0PvqgsSM1kjqlqbAH1LOus76PA3uPqRQwgQszELrUC/exec"
+    # Intentamos primero con la URL guardada en tus secrets, si no, usamos la directa.
+    try:
+        url_script = st.secrets["connections"]["gsheets"]["script_url"]
+    except:
+        url_script = "https://script.google.com/macros/s/AKfycbxkpz0u0vEAo_EK3jQy6lwLh1dn6qDIYtywr7qbqXFwqwJWlXYKGVwraOBk57Aa1GUA/exec"
+    
     payload = {
         "nombre": nombre,
         "telefono": telefono,
@@ -84,8 +88,10 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
         "cantidad": cantidad
     }
     try:
-        response = requests.post(url_script, json=payload)
-        return response.status_code == 200
+        # Forzamos los headers correctos para evitar bloqueos de Google
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(url_script, json=payload, headers=headers, timeout=10)
+        return response.status_code == 200 or "success" in response.text.lower()
     except:
         return False
 
@@ -117,7 +123,8 @@ with tab1:
         
         if enviado:
             if nombre and telefono:
-                exito = registrar_cliente_script(nombre, telefono, precio, cantidad)
+                with st.spinner("Guardando en la base de datos..."):
+                    exito = registrar_cliente_script(nombre, telefono, precio, cantidad)
                 if exito:
                     st.success(f"¡{nombre} procesado con éxito!")
                     st.balloons()
@@ -144,7 +151,7 @@ with tab2:
             else:
                 st.success(f"✅ **{cliente.Nombre_Cliente}** — Compra reciente hace {dias_pasados} días.")
             
-            st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Última Compra:** {cliente.Fecha_Compra.strftime('%Y-%m-%d')} | **Frascos:** {cliente.Cantidad_Frasco}")
+            st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Última Compra:** {cliente.Fecha_Compra.strftime('%Y-%m-%d %H:%M:%S')} | **Frascos:** {cliente.Cantidad_Frasco}")
             
             texto_wa = f"¡Hola {cliente.Nombre_Cliente}! Te saludamos de Andalucía Beauty. Esperamos que estés disfrutando los resultados de tu crema. Cuéntanos, ¿cómo va tu tratamiento?"
             texto_encoded = urllib.parse.quote(texto_wa)
