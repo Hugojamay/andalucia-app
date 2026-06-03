@@ -36,7 +36,7 @@ def cargar_clientes_nube():
     try:
         # Leemos el archivo usando la URL de exportación directa en formato CSV
         # Esto soluciona la pestaña de seguimiento sin usar la librería 'st-gsheets-connection'
-        url_csv = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/export?format=csv"
+        url_csv = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/gviz/tq?tqx=out:csv"
         df = pd.read_csv(url_csv, keep_default_na=False)
         clientes = []
         
