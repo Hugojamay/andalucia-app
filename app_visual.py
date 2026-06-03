@@ -34,48 +34,41 @@ class Cliente:
 # ==========================================
 def cargar_clientes_nube():
     try:
-        # Leemos el archivo usando la URL de exportación directa en formato CSV
-        # Esto soluciona la pestaña de seguimiento sin usar la librería 'st-gsheets-connection'
-        url_csv = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/gviz/tq?tqx=out:csv"
-        df = pd.read_csv(url_csv, keep_default_na=False)
-        clientes = []
+        # ID de tu hoja (el código largo en tu URL)
+        sheet_id = "1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y"
+        # Nombre exacto de la pestaña abajo en tu Excel
+        sheet_name = "Base de Datos Andalucia Clientes"
         
-        if not df.empty:
-            # Forzamos que las columnas se lean limpias y en mayúsculas
-            df.columns = [str(c).strip().upper() for c in df.columns]
+        # URL mágica para leer una pestaña específica por nombre
+        url_csv = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={urllib.parse.quote(sheet_name)}"
+        
+        df = pd.read_csv(url_csv, keep_default_na=False)
+        
+        # Si esto llega aquí, significa que ya leyó la tabla
+        if df.empty:
+            return []
             
-            if 'NOMBRE' in df.columns:
-                for index, row in df.iterrows():
-                    nombre_val = str(row['NOMBRE']).strip()
-                    # Ignoramos filas vacías o renglones repetidos del encabezado
-                    if nombre_val == "" or nombre_val.upper() == "NOMBRE":
-                        continue
-                    
-                    tel_val = str(row['TELEFONO']).strip() if 'TELEFONO' in df.columns else ""
-                    
-                    try:
-                        precio_val = int(float(str(row['PRECIO']))) if 'PRECIO' in df.columns and str(row['PRECIO']).strip() != "" else 0
-                    except:
-                        precio_val = 0
-                        
-                    try:
-                        cantidad_val = int(float(str(row['CANTIDAD']))) if 'CANTIDAD' in df.columns and str(row['CANTIDAD']).strip() != "" else 1
-                    except:
-                        cantidad_val = 1
-                        
-                    fecha_val = str(row['FECHA']).strip() if 'FECHA' in df.columns else None
-                    
-                    c = Cliente(
-                        Nombre_Cliente=nombre_val,
-                        Tel_Correo=tel_val,
-                        Precio_Especial=precio_val,
-                        Cantidad_Frasco=cantidad_val,
-                        Fecha_Compra=fecha_val
-                    )
-                    clientes.append(c)
+        df.columns = [str(c).strip().upper() for c in df.columns]
+        
+        clientes = []
+        for index, row in df.iterrows():
+            nombre_val = str(row.get('NOMBRE', '')).strip()
+            if nombre_val == "" or nombre_val.upper() == "NOMBRE":
+                continue
+            
+            # Aquí construimos tu objeto Cliente...
+            c = Cliente(
+                Nombre_Cliente=nombre_val,
+                Tel_Correo=str(row.get('TELEFONO', '')).strip(),
+                Precio_Especial=int(float(row.get('PRECIO', 0) or 0)),
+                Cantidad_Frasco=int(float(row.get('CANTIDAD', 1) or 1)),
+                Fecha_Compra=str(row.get('FECHA', datetime.now().strftime('%Y-%m-%d')))
+            )
+            clientes.append(c)
         return clientes
     except Exception as e:
-        # Si hay un error de lectura, mostramos un aviso discreto en la consola
+        # Esto te dirá si hubo un error específico
+        st.error(f"Error al conectar: {e}")
         return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
