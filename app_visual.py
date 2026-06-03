@@ -17,7 +17,6 @@ class Cliente:
         if Fecha_Compra:
             if isinstance(Fecha_Compra, str):
                 try:
-                    # Intenta limpiar formatos comunes de fecha
                     fecha_limpia = Fecha_Compra.split(".")[0].strip()
                     self.Fecha_Compra = datetime.strptime(fecha_limpia, "%Y-%m-%d %H:%M:%S")
                 except:
@@ -35,15 +34,11 @@ class Cliente:
 # ==========================================
 def cargar_clientes_nube():
     try:
-        # Tu enlace directo de exportación CSV público
         url_csv = "https://docs.google.com/spreadsheets/d/1aSRk8GJE5kOJKahGkqea0SHa1x-i61v3UCJV-YUkI-Y/export?format=csv&gid=0"
-        
-        # Leemos los datos directamente de la nube de Google
         df = pd.read_csv(url_csv, keep_default_na=False)
         clientes = []
         
         if not df.empty:
-            # Forzamos que los nombres de las columnas estén en mayúsculas y sin espacios
             df.columns = [str(c).strip().upper() for c in df.columns]
             
             if 'NOMBRE' in df.columns:
@@ -52,22 +47,18 @@ def cargar_clientes_nube():
                     if nombre_val == "" or nombre_val.upper() == "NOMBRE":
                         continue
                     
-                    # Extraer Teléfono
                     tel_val = str(row['TELEFONO']).strip() if 'TELEFONO' in df.columns else ""
                     
-                    # Extraer Precio
                     try:
                         precio_val = int(float(str(row['PRECIO']))) if 'PRECIO' in df.columns and str(row['PRECIO']).strip() != "" else 0
                     except:
                         precio_val = 0
                         
-                    # Extraer Cantidad
                     try:
                         cantidad_val = int(float(str(row['CANTIDAD']))) if 'CANTIDAD' in df.columns and str(row['CANTIDAD']).strip() != "" else 1
                     except:
                         cantidad_val = 1
                         
-                    # Extraer Fecha (Si no existe en el Excel, le asigna la de hoy automáticamente)
                     fecha_val = str(row['FECHA']).strip() if 'FECHA' in df.columns else None
                     
                     c = Cliente(
@@ -83,7 +74,6 @@ def cargar_clientes_nube():
         return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
-    # URL de tu macro de Google Apps Script para guardar datos
     url_script = "https://script.google.com/macros/s/AKfycbz24tc1IlClP9Nasm_e0gO9E_c0PvqgsSM1kjqlqbAH1LOus76PA3uPqRQwgQszELrUC/exec"
     payload = {
         "nombre": nombre,
@@ -102,10 +92,10 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty - Control", page_icon="✨", layout="centered")
 
-# Encabezado Bonito
-st.markdown("<h1 style='text-align: center; color: #4A5D4E;'>A</h1>", unsafe_allowed_html=True)
-st.markdown("<h2 style='text-align: center; font-weight: 300; letter-spacing: 3px;'>ANDALUCÍA BEAUTY</h2>", unsafe_allowed_html=True)
-st.markdown("<p style='text-align: center; font-style: italic; color: gray;'>Control de Clientes y Seguimiento de Alta Gama</p>", unsafe_allowed_html=True)
+# Encabezado nativo estándar sin errores
+st.title("✨ ANDALUCÍA BEAUTY")
+st.caption("Control de Clientes y Seguimiento de Alta Gama")
+st.divider()
 
 # Pestañas
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
@@ -134,7 +124,6 @@ with tab1:
 with tab2:
     st.subheader("Clientes en Seguimiento (Base de Datos)")
     
-    # Cargamos en tiempo real desde la URL pública
     lista_clientes = cargar_clientes_nube()
     
     if not lista_clientes:
@@ -143,29 +132,18 @@ with tab2:
         for cliente in lista_clientes:
             dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
             
-            # Formatos de alerta según los días
             if dias_pasados >= 25:
-                alerta_texto = f"🚨 **¡URGENTE! Hace {dias_pasados} días que no compra.** Reabastecimiento necesario."
-                color_borde = "#FFD2D2"
+                st.error(f"🚨 **{cliente.Nombre_Cliente}** — ¡URGENTE! Hace {dias_pasados} días que no compra.")
             elif dias_pasados >= 15:
-                alerta_texto = f"⚠️ **Seguimiento Intermedio ({dias_pasados} días).** Preguntar cómo va con su crema."
-                color_borde = "#FFEAA7"
+                st.warning(f"⚠️ **{cliente.Nombre_Cliente}** — Seguimiento Intermedio ({dias_pasados} días).")
             else:
-                alerta_texto = f"✅ **Compra reciente hace {dias_pasados} días.** Cliente al corriente."
-                color_borde = "#D4EDDA"
+                st.success(f"✅ **{cliente.Nombre_Cliente}** — Compra reciente hace {dias_pasados} días.")
             
-            # Tarjeta visual para el cliente
-            st.markdown(f"""
-            <div style="border: 1px solid #DDD; background-color: {color_borde}; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                <h4 style="margin:0; color: #333;">{cliente.Nombre_Cliente}</h4>
-                <p style="margin:5px 0; color: #555;"><b>Teléfono:</b> {cliente.Tel_Correo} | <b>Última Compra:</b> {cliente.Fecha_Compra.strftime('%Y-%m-%d')} | <b>Frascos:</b> {cliente.Cantidad_Frasco}</p>
-                <p style="margin:0; font-size: 14px;">{alerta_texto}</p>
-            </div>
-            """, unsafe_allowed_html=True)
+            st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Última Compra:** {cliente.Fecha_Compra.strftime('%Y-%m-%d')} | **Frascos:** {cliente.Cantidad_Frasco}")
             
-            # Mensaje personalizado de WhatsApp
             texto_wa = f"¡Hola {cliente.Nombre_Cliente}! Te saludamos de Andalucía Beauty. Esperamos que estés disfrutando los resultados de tu crema. Cuéntanos, ¿cómo va tu tratamiento?"
             texto_encoded = urllib.parse.quote(texto_wa)
             link_whatsapp = f"https://wa.me/{cliente.Tel_Correo}?text={texto_encoded}"
             
-            st.navigator = st.link_button(f"💬 Contactar a {cliente.Nombre_Cliente} por WhatsApp", link_whatsapp)
+            st.link_button(f"💬 Contactar a {cliente.Nombre_Cliente} por WhatsApp", link_whatsapp)
+            st.divider()
