@@ -92,10 +92,14 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty - Control", page_icon="✨", layout="centered")
 
-# Encabezado nativo estándar sin errores
-st.title("✨ ANDALUCÍA BEAUTY")
-st.caption("Control de Clientes y Seguimiento de Alta Gama")
-st.divider()
+# REGRESA EL LOGO VERDE ORIGINAL PROPIO (Usando st.html de forma segura)
+st.html("""
+    <div style="background-color: #798670; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+        <h1 style="color: white; font-family: 'Georgia', serif; font-size: 60px; margin: 0; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.4); display: inline-block; padding-bottom: 5px; width: 80px;">A</h1>
+        <h2 style="color: white; font-family: 'Arial', sans-serif; font-size: 24px; letter-spacing: 4px; margin-top: 15px; margin-bottom: 5px; font-weight: 300;">ANDALUCÍA BEAUTY</h2>
+        <p style="color: #E2E8F0; font-style: italic; font-size: 14px; margin: 0;">Control de Clientes y Seguimiento de Alta Gama</p>
+    </div>
+""")
 
 # Pestañas
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
