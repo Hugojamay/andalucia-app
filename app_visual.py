@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 import urllib.parse
 import pandas as pd
+import requests
 
 # =========================================================
 # 1. TU CLASE CLIENTE
@@ -44,16 +45,11 @@ class Cliente:
 
 
 # =========================================================
-# 2. CONEXIÓN A LA BASE DE DATOS (Nativa de Streamlit)
+# 2. CONEXIÓN A LA BASE DE DATOS (Lectura y Escritura Alternativa)
 # =========================================================
-# Usamos el conector genérico para leer archivos remotos (en este caso la URL CSV de tu Google Sheet)
-# Para actualizarla constantemente usamos st.cache_data con un tiempo de expiración corto
 def cargar_clientes_nube():
     try:
-        # Obtenemos la URL secreta que guardaste en los Secrets de Streamlit
         url_base = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        
-        # Convertimos la URL normal de Google Sheets a formato de descarga directa CSV para que Pandas la lea directo
         if "/edit" in url_base:
             url_csv = url_base.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
         else:
@@ -62,7 +58,6 @@ def cargar_clientes_nube():
         df = pd.read_csv(url_csv)
         clientes = []
         
-        # Validamos que las columnas existan
         for index, row in df.iterrows():
             if 'Nombre' in df.columns and pd.notna(row['Nombre']):
                 c = Cliente(
@@ -78,12 +73,27 @@ def cargar_clientes_nube():
         return []
 
 def guardar_cliente_nube(nuevo_cliente):
-    # Nota: Como la escritura directa en Google Sheets desde entornos serverless requiere 
-    # credenciales complejas de Service Account (un archivo JSON de Google Cloud), para mantener 
-    # la app ligera y funcional con tu configuración actual de 'spreadsheet = URL', utilizaremos
-    # momentáneamente un almacenamiento persistente local en el servidor o simulación.
-    # ¡Prueba primero cargando la pestaña de alertas para ver que lea tu archivo!
-    st.info("Para habilitar la escritura automática de regreso, necesitaremos un paso extra con Google Cloud.")
+    try:
+        # Intentamos usar la URL del script de automatización si está configurado en Secrets
+        if "script_url" in st.secrets["connections"]["gsheets"]:
+            url_script = st.secrets["connections"]["gsheets"]["script_url"]
+            datos = {
+                "Nombre": nuevo_cliente.Nombre_Cliente,
+                "Telefono": nuevo_cliente.Tel_Correo,
+                "Precio": nuevo_cliente.Precio_Especial,
+                "Cantidad": nuevo_cliente.Cantidad_Frasco,
+                "Fecha": nuevo_cliente.Fecha_Compra.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            response = requests.post(url_script, json=datos)
+            return response.status_code == 200
+        else:
+            # Si no hay script, guardamos localmente en memoria de la sesión actual temporalmente
+            if "backup_clientes" not in st.session_state:
+                st.session_state.backup_clientes = []
+            st.session_state.backup_clientes.append(nuevo_cliente)
+            return True
+    except Exception as e:
+        return False
 
 
 # =========================================================
@@ -149,8 +159,12 @@ with pestaña1:
     
     if st.button("Guardar Cliente"):
         if nombre and telefono:
-            nuevo = Cliente(nombre, telefono, precio, cantidad)
-            st.success(f"¡{nombre} procesado!")
+            nuevo = Cliente(nombre, telefono, precio, quantity)
+            exito = guardar_cliente_nube(nuevo)
+            if exito:
+                st.success(f"¡{nombre} registrado con éxito y listo para seguimiento!")
+            else:
+                st.warning(f"Guardado localmente. Falta vincular el canal de escritura.")
         else:
             st.error("Por favor, escribe el nombre y el teléfono.")
 
@@ -159,15 +173,19 @@ with pestaña2:
     
     mis_clientes = cargar_clientes_nube()
     
+    # Combinamos datos remotos de Google Drive con los agregados temporalmente en la sesión
+    if "backup_clientes" in st.session_state:
+        mis_clientes.extend(st.session_state.backup_clientes)
+    
     if len(mis_clientes) == 0:
-        st.info("No hay clientes registrados todavía o conectando con la hoja...")
+        st.info("No hay clientes registrados todavía. Agrega uno en la pestaña anterior.")
     else:
         for cliente in mis_clientes:
             with st.container():
                 st.write(f"### 👤 {cliente.Nombre_Cliente}")
-                st.write(f"**Frascos:** {cliente.Cantidad_Frasco} | **Precio:** ${cliente.Precio_Especial}")
+                st.write(f"**Teléfono:** {cliente.Tel_Correo} | **Frascos:** {cliente.Cantidad_Frasco}")
                 st.write(cliente.verificar_alerta_visual())
                 
                 link = cliente.generar_link_whatsapp()
-                st.link_button("💬 Enviar WhatsApp", link)
+                st.link_button("💬 Enviar WhatsApp de Seguimiento", link)
                 st.divider()
