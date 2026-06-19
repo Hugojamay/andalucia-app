@@ -4,16 +4,13 @@ import urllib.parse
 import pandas as pd
 import requests
 
-# ==========================================
-# 1. TU CLASE CLIENTE (Sin cambios en lógica)
-# ==========================================
+# ... (Tu clase Cliente sigue igual) ...
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra=None):
         self.Nombre_Cliente = Nombre_Cliente
         self.Tel_Correo = Tel_Correo
         self.Precio_Especial = Precio_Especial
         self.Cantidad_Frasco = Cantidad_Frasco
-        
         if Fecha_Compra and Fecha_Compra != "":
             if isinstance(Fecha_Compra, str):
                 try:
@@ -29,29 +26,19 @@ class Cliente:
         else:
             self.Fecha_Compra = datetime.now()
 
-# ==========================================
-# 2. FUNCIONES DE CONEXIÓN CORREGIDAS
-# ==========================================
-@st.cache_data(ttl=60) # Añadimos caché para que refresque cada minuto
+# ... (Tus funciones cargar_clientes_nube y registrar_cliente_script siguen igual) ...
+@st.cache_data(ttl=60)
 def cargar_clientes_nube():
     try:
         url_csv = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqDrMcAlzp02km9pBIMls0I8OxKgRMySxN5GhbWgd08nj6sj5hn8BstFTti5go4g7T6x1NsHUUU_BE/pub?output=csv"
         df = pd.read_csv(url_csv, keep_default_na=False)
-        
-        if df.empty:
-            return []
-            
+        if df.empty: return []
         df.columns = [str(c).strip().upper() for c in df.columns]
-        
         clientes = []
         for index, row in df.iterrows():
             nombre_val = str(row.get('NOMBRE', '')).strip()
-            if nombre_val == "" or nombre_val.upper() == "NOMBRE":
-                continue
-            
-            # FIX: Capturamos la fecha como texto crudo, si viene vacía no forzamos 'hoy' aquí
+            if nombre_val == "" or nombre_val.upper() == "NOMBRE": continue
             fecha_raw = str(row.get('FECHA', '')).strip()
-            
             c = Cliente(
                 Nombre_Cliente=nombre_val,
                 Tel_Correo=str(row.get('TELEFONO', '')).strip(),
@@ -62,8 +49,7 @@ def cargar_clientes_nube():
             clientes.append(c)
         return clientes
     except Exception as e:
-        st.error(f"Error al conectar: {e}")
-        return []
+        st.error(f"Error: {e}"); return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
     try:
@@ -71,54 +57,47 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
         payload = {"nombre": nombre, "telefono": telefono, "precio": precio, "cantidad": cantidad}
         response = requests.post(url_script, json=payload, timeout=10)
         return response.status_code == 200
-    except:
-        return False
+    except: return False
 
-# ==========================================
-# 3. INTERFAZ VISUAL
-# ==========================================
-st.set_page_config(page_title="Andalucía Beauty - Control", page_icon="✨", layout="centered")
+# --- INTERFAZ ---
+st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 
-st.markdown("""
-    <div style="background-color: #798670; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-        <h1 style="color: white; font-family: 'Georgia', serif; font-size: 60px; margin: 0; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.4); display: inline-block; padding-bottom: 5px; width: 80px;">A</h1>
-        <h2 style="color: white; font-family: 'Arial', sans-serif; font-size: 24px; letter-spacing: 4px; margin-top: 15px; margin-bottom: 5px; font-weight: 300;">ANDALUCÍA BEAUTY</h2>
-    </div>
-""", unsafe_allow_html=True)
+st.markdown("""<div style="background-color: #798670; padding: 20px; border-radius: 10px; text-align: center; color: white;">
+<h1>ANDALUCÍA BEAUTY</h1></div>""", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Alertas y Seguimiento"])
+tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Reportes y Seguimiento"])
 
 with tab1:
     with st.form("registro_form", clear_on_submit=True):
-        nombre = st.text_input("Nombre del Cliente:")
-        telefono = st.text_input("Teléfono (ej. 52133xxxxxxxx):")
-        precio = st.number_input("Precio ($):", min_value=0, value=435)
-        cantidad = st.number_input("Frascos:", min_value=1, value=1)
+        nombre = st.text_input("Nombre:")
+        telefono = st.text_input("Teléfono:")
+        precio = st.number_input("Precio ($):", value=435)
+        cantidad = st.number_input("Frascos:", value=1)
         if st.form_submit_button("Guardar"):
-            if nombre and telefono:
-                if registrar_cliente_script(nombre, telefono, precio, cantidad):
-                    st.success(f"¡{nombre} registrado!")
-                else:
-                    st.error("Error de conexión.")
+            if registrar_cliente_script(nombre, telefono, precio, cantidad):
+                st.success("¡Guardado!")
 
 with tab2:
     lista_clientes = cargar_clientes_nube()
-    if not lista_clientes:
-        st.info("Sin datos.")
-    else:
+    
+    if lista_clientes:
+        # --- NUEVA LÓGICA DE REPORTE ---
+        hoy = datetime.now()
+        ventas_mes = [c for c in lista_clientes if c.Fecha_Compra.month == hoy.month and c.Fecha_Compra.year == hoy.year]
+        total_frascos = sum(c.Cantidad_Frasco for c in ventas_mes)
+        total_dinero = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_mes)
+        
+        st.subheader(f"📈 Ventas de {hoy.strftime('%B %Y')}")
+        c1, c2 = st.columns(2)
+        c1.metric("Frascos", total_frascos)
+        c2.metric("Ingresos", f"${total_dinero:,}")
+        st.divider()
+        # -------------------------------
+
         for cliente in lista_clientes:
-            # Cálculo corregido
             dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
-            
             st.write(f"### 👤 {cliente.Nombre_Cliente}")
-            if dias_pasados >= 25:
-                st.error(f"🚨 URGENTE: {dias_pasados} días sin comprar.")
-            elif dias_pasados >= 15:
-                st.warning(f"⚠️ Seguimiento: {dias_pasados} días.")
-            else:
-                st.success(f"✅ Reciente: {dias_pasados} días.")
-            
-            st.write(f"**Fecha Compra:** {cliente.Fecha_Compra.strftime('%Y-%m-%d')}")
-            texto_wa = f"Hola {cliente.Nombre_Cliente}, ¿cómo va tu tratamiento con Andalucía Beauty?"
-            st.link_button("💬 WhatsApp", f"https://wa.me/{cliente.Tel_Correo}?text={urllib.parse.quote(texto_wa)}")
+            st.write(f"Hace {dias_pasados} días | **{cliente.Cantidad_Frasco} frascos**")
+            link = f"https://wa.me/{cliente.Tel_Correo}?text=Hola+{cliente.Nombre_Cliente}%2C+¿cómo+va+tu+tratamiento+con+Andalucía+Beauty%3F"
+            st.link_button("💬 WhatsApp", link)
             st.divider()
