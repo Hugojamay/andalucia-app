@@ -4,7 +4,9 @@ import urllib.parse
 import pandas as pd
 import requests
 
-# ... (Tu clase Cliente sigue igual) ...
+# ==========================================
+# 1. CLASE CLIENTE
+# ==========================================
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra=None):
         self.Nombre_Cliente = Nombre_Cliente
@@ -26,7 +28,9 @@ class Cliente:
         else:
             self.Fecha_Compra = datetime.now()
 
-# ... (Tus funciones cargar_clientes_nube y registrar_cliente_script siguen igual) ...
+# ==========================================
+# 2. FUNCIONES DE CONEXIÓN
+# ==========================================
 @st.cache_data(ttl=60)
 def cargar_clientes_nube():
     try:
@@ -59,7 +63,9 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
         return response.status_code == 200
     except: return False
 
-# --- INTERFAZ ---
+# ==========================================
+# 3. INTERFAZ
+# ==========================================
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 
 st.markdown("""<div style="background-color: #798670; padding: 20px; border-radius: 10px; text-align: center; color: white;">
@@ -81,8 +87,9 @@ with tab2:
     lista_clientes = cargar_clientes_nube()
     
     if lista_clientes:
-        # --- NUEVA LÓGICA DE REPORTE ---
         hoy = datetime.now()
+        
+        # --- REPORTE MENSUAL ---
         ventas_mes = [c for c in lista_clientes if c.Fecha_Compra.month == hoy.month and c.Fecha_Compra.year == hoy.year]
         total_frascos = sum(c.Cantidad_Frasco for c in ventas_mes)
         total_dinero = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_mes)
@@ -91,9 +98,20 @@ with tab2:
         c1, c2 = st.columns(2)
         c1.metric("Frascos", total_frascos)
         c2.metric("Ingresos", f"${total_dinero:,}")
+        
+        # --- REPORTE ANUAL ---
         st.divider()
-        # -------------------------------
+        ventas_anuales = [c for c in lista_clientes if c.Fecha_Compra.year == hoy.year]
+        total_f_anual = sum(c.Cantidad_Frasco for c in ventas_anuales)
+        total_d_anual = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_anuales)
+        
+        st.subheader(f"🏆 Ventas Acumuladas {hoy.year}")
+        a1, a2 = st.columns(2)
+        a1.metric("Frascos Año", total_f_anual)
+        a2.metric("Ingresos Año", f"${total_d_anual:,}")
+        st.divider()
 
+        # --- LISTA DE SEGUIMIENTO ---
         for cliente in lista_clientes:
             dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
             st.write(f"### 👤 {cliente.Nombre_Cliente}")
