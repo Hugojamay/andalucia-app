@@ -105,7 +105,12 @@ with tab2:
         total_f_anual = sum(c.Cantidad_Frasco for c in ventas_anuales)
         total_d_anual = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_anuales)
         
-        st.subheader(f"🏆 Ventas Acumuladas {hoy.year}")
+        # Lista de meses en español
+        meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        nombre_mes = meses_es[hoy.month]
+        
+        st.subheader(f"📈 Ventas de {nombre_mes} {hoy.year}")
         a1, a2 = st.columns(2)
         a1.metric("Frascos Año", total_f_anual)
         a2.metric("Ingresos Año", f"${total_d_anual:,}")
