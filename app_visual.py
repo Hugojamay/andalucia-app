@@ -88,13 +88,16 @@ with tab2:
     
     if lista_clientes:
         hoy = datetime.now()
+        meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        nombre_mes = meses_es[hoy.month]
         
         # --- REPORTE MENSUAL ---
         ventas_mes = [c for c in lista_clientes if c.Fecha_Compra.month == hoy.month and c.Fecha_Compra.year == hoy.year]
         total_frascos = sum(c.Cantidad_Frasco for c in ventas_mes)
         total_dinero = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_mes)
         
-        st.subheader(f"📈 Ventas de {hoy.strftime('%B %Y')}")
+        st.subheader(f"📈 Ventas de {nombre_mes} {hoy.year}")
         c1, c2 = st.columns(2)
         c1.metric("Frascos", total_frascos)
         c2.metric("Ingresos", f"${total_dinero:,}")
@@ -105,12 +108,7 @@ with tab2:
         total_f_anual = sum(c.Cantidad_Frasco for c in ventas_anuales)
         total_d_anual = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_anuales)
         
-        # Lista de meses en español
-        meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-        nombre_mes = meses_es[hoy.month]
-        
-        st.subheader(f"📈 Ventas de {nombre_mes} {hoy.year}")
+        st.subheader(f"🏆 Ventas Acumuladas {hoy.year}")
         a1, a2 = st.columns(2)
         a1.metric("Frascos Año", total_f_anual)
         a2.metric("Ingresos Año", f"${total_d_anual:,}")
