@@ -53,7 +53,7 @@ def cargar_clientes_nube():
             clientes.append(c)
         return clientes
     except Exception as e:
-        st.error(f"Error: {e}"); return []
+        return []
 
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
     try:
@@ -86,7 +86,7 @@ with tab1:
 with tab2:
     lista_clientes = cargar_clientes_nube()
     
-    if lista_clientes:
+    if lista_clientes and len(lista_clientes) > 0:
         hoy = datetime.now()
         meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
                     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
@@ -116,9 +116,12 @@ with tab2:
 
         # --- LISTA DE SEGUIMIENTO ---
         for cliente in lista_clientes:
-            dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
-            st.write(f"### 👤 {cliente.Nombre_Cliente}")
-            st.write(f"Hace {dias_pasados} días | **{cliente.Cantidad_Frasco} frascos**")
-            link = f"https://wa.me/{cliente.Tel_Correo}?text=Hola+{cliente.Nombre_Cliente}%2C+¿cómo+va+tu+tratamiento+con+Andalucía+Beauty%3F"
-            st.link_button("💬 WhatsApp", link)
-            st.divider()
+            if isinstance(cliente.Fecha_Compra, datetime):
+                dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
+                st.write(f"### 👤 {cliente.Nombre_Cliente}")
+                st.write(f"Hace {dias_pasados} días | **{cliente.Cantidad_Frasco} frascos**")
+                link = f"https://wa.me/{cliente.Tel_Correo}?text=Hola+{cliente.Nombre_Cliente}%2C+¿cómo+va+tu+tratamiento+con+Andalucía+Beauty%3F"
+                st.link_button("💬 WhatsApp", link)
+                st.divider()
+    else:
+        st.info("No hay datos de clientes disponibles en este momento. Verifica tu conexión a Google Sheets.")
