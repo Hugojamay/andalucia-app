@@ -1,10 +1,10 @@
 import streamlit as st
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 import requests
 
 # ==========================================
-# 1. CLASE CLIENTE (Mantiene tu lógica)
+# 1. CLASE CLIENTE (Lógica original preservada)
 # ==========================================
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra):
@@ -12,6 +12,7 @@ class Cliente:
         self.Tel_Correo = Tel_Correo
         self.Precio_Especial = float(Precio_Especial)
         self.Cantidad_Frasco = int(Cantidad_Frasco)
+        # Aseguramos que la fecha sea un objeto datetime
         try:
             self.Fecha_Compra = pd.to_datetime(Fecha_Compra)
         except:
@@ -39,15 +40,15 @@ def cargar_clientes_nube():
 # 3. INTERFAZ Y LÓGICA DE NEGOCIO
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
-st.header("ANDALUCÍA BEAUTY")
+st.markdown("<h1 style='text-align: center;'>ANDALUCÍA BEAUTY</h1>", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["📝 Registrar", "📊 Reportes y Seguimiento"])
+tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Reportes y Seguimiento"])
 
 with tab1:
     with st.form("registro_form", clear_on_submit=True):
         n = st.text_input("Nombre:")
         t = st.text_input("Teléfono:")
-        p = st.number_input("Precio:", value=435)
+        p = st.number_input("Precio ($):", value=435)
         c = st.number_input("Frascos:", value=1)
         if st.form_submit_button("Guardar"):
             st.success("Guardado")
@@ -57,27 +58,34 @@ with tab2:
     if lista:
         hoy = datetime.now()
         
-        # --- CÁLCULOS MENSUALES Y ANUALES ---
-        ventas_mes = [c for c in lista if c.Fecha_Compra.month == hoy.month and c.Fecha_Compra.year == hoy.year]
-        ventas_anio = [c for c in lista if c.Fecha_Compra.year == hoy.year]
+        # --- CÁLCULOS ---
+        ventas_mes = [x for x in lista if x.Fecha_Compra.month == hoy.month and x.Fecha_Compra.year == hoy.year]
+        ventas_anio = [x for x in lista if x.Fecha_Compra.year == hoy.year]
         
-        st.subheader("📈 Reportes")
+        st.subheader("📈 Ventas")
         col1, col2 = st.columns(2)
-        col1.metric("Frascos (Mes)", sum(c.Cantidad_Frasco for c in ventas_mes))
-        col2.metric("Frascos (Año)", sum(c.Cantidad_Frasco for c in ventas_anio))
+        col1.metric("Frascos (Mes)", sum(x.Cantidad_Frasco for x in ventas_mes))
+        col2.metric("Frascos (Año)", sum(x.Cantidad_Frasco for x in ventas_anio))
         
         st.divider()
-        st.subheader("🔔 Seguimiento (Aviso a los 15 días)")
+        st.subheader("👤 Detalle de Clientes")
         
-        # --- LÓGICA DE SEGUIMIENTO ---
+        # --- LISTA DE SEGUIMIENTO CON DETALLE ---
         for cli in lista:
             dias_pasados = (hoy - cli.Fecha_Compra).days
-            # Si pasaron 15 días o más, mostramos aviso
-            if dias_pasados >= 15:
-                st.warning(f"¡Aviso! {cli.Nombre_Cliente} compró hace {dias_pasados} días.")
-                link = f"https://wa.me/{cli.Tel_Correo}?text=Hola+{cli.Nombre_Cliente}%2C+¿cómo+va+tu+tratamiento+con+Andalucía+Beauty%3F"
-                st.link_button("💬 WhatsApp", link)
-            else:
-                st.write(f"✅ {cli.Nombre_Cliente} (hace {dias_pasados} días)")
+            
+            # Mostrar siempre el detalle
+            with st.expander(f"👤 {cli.Nombre_Cliente} - Hace {dias_pasados} días"):
+                st.write(f"**Cantidad:** {cli.Cantidad_Frasco} frascos")
+                st.write(f"**Precio por frasco:** ${cli.Precio_Especial:,.2f}")
+                st.write(f"**Fecha compra:** {cli.Fecha_Compra.strftime('%d/%m/%Y')}")
+                
+                # Alerta visual si pasaron más de 15 días
+                if dias_pasados >= 15:
+                    st.warning("¡Tiempo de seguimiento!")
+                    link = f"https://wa.me/{cli.Tel_Correo}?text=Hola+{cli.Nombre_Cliente}%2C+¿cómo+va+tu+tratamiento+con+Andalucía+Beauty%3F"
+                    st.link_button("💬 WhatsApp", link)
+            
+            st.divider()
     else:
         st.info("Sin datos.")
