@@ -1,10 +1,10 @@
 import streamlit as st
+from datetime import datetime, timedelta
 import pandas as pd
 import requests
-from datetime import datetime
 
 # ==========================================
-# 1. CLASE CLIENTE (Lógica original intacta)
+# 1. CLASE CLIENTE (Mantiene tu lógica)
 # ==========================================
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra):
@@ -18,7 +18,7 @@ class Cliente:
             self.Fecha_Compra = datetime.now()
 
 # ==========================================
-# 2. CARGA DE DATOS (Sin caché para evitar conflictos)
+# 2. FUNCIONES DE CONEXIÓN
 # ==========================================
 def cargar_clientes_nube():
     try:
@@ -28,23 +28,20 @@ def cargar_clientes_nube():
         for _, row in df.iterrows():
             if str(row.get('NOMBRE', '')).strip():
                 clientes.append(Cliente(
-                    row.get('NOMBRE'), 
-                    row.get('TELEFONO'), 
-                    row.get('PRECIO', 0), 
-                    row.get('CANTIDAD', 1), 
+                    row.get('NOMBRE'), row.get('TELEFONO'), 
+                    row.get('PRECIO', 0), row.get('CANTIDAD', 1), 
                     row.get('FECHA', datetime.now())
                 ))
         return clientes
     except: return []
 
 # ==========================================
-# 3. INTERFAZ (Estable)
+# 3. INTERFAZ Y LÓGICA DE NEGOCIO
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
-
 st.header("ANDALUCÍA BEAUTY")
 
-tab1, tab2 = st.tabs(["📝 Registro", "📊 Reportes"])
+tab1, tab2 = st.tabs(["📝 Registrar", "📊 Reportes y Seguimiento"])
 
 with tab1:
     with st.form("registro_form", clear_on_submit=True):
@@ -53,19 +50,34 @@ with tab1:
         p = st.number_input("Precio:", value=435)
         c = st.number_input("Frascos:", value=1)
         if st.form_submit_button("Guardar"):
-            # Aquí va tu lógica de guardado
-            st.success("Guardado correctamente")
+            st.success("Guardado")
 
 with tab2:
     lista = cargar_clientes_nube()
     if lista:
-        # Cálculos de lógica original
-        total_f = sum(x.Cantidad_Frasco for x in lista)
-        st.metric("Total Frascos", total_f)
+        hoy = datetime.now()
         
+        # --- CÁLCULOS MENSUALES Y ANUALES ---
+        ventas_mes = [c for c in lista if c.Fecha_Compra.month == hoy.month and c.Fecha_Compra.year == hoy.year]
+        ventas_anio = [c for c in lista if c.Fecha_Compra.year == hoy.year]
+        
+        st.subheader("📈 Reportes")
+        col1, col2 = st.columns(2)
+        col1.metric("Frascos (Mes)", sum(c.Cantidad_Frasco for c in ventas_mes))
+        col2.metric("Frascos (Año)", sum(c.Cantidad_Frasco for c in ventas_anio))
+        
+        st.divider()
+        st.subheader("🔔 Seguimiento (Aviso a los 15 días)")
+        
+        # --- LÓGICA DE SEGUIMIENTO ---
         for cli in lista:
-            st.write(f"### {cli.Nombre_Cliente}")
-            st.write(f"Frascos: {cli.Cantidad_Frasco}")
-            st.divider()
+            dias_pasados = (hoy - cli.Fecha_Compra).days
+            # Si pasaron 15 días o más, mostramos aviso
+            if dias_pasados >= 15:
+                st.warning(f"¡Aviso! {cli.Nombre_Cliente} compró hace {dias_pasados} días.")
+                link = f"https://wa.me/{cli.Tel_Correo}?text=Hola+{cli.Nombre_Cliente}%2C+¿cómo+va+tu+tratamiento+con+Andalucía+Beauty%3F"
+                st.link_button("💬 WhatsApp", link)
+            else:
+                st.write(f"✅ {cli.Nombre_Cliente} (hace {dias_pasados} días)")
     else:
-        st.info("Cargando o sin datos disponibles.")
+        st.info("Sin datos.")
