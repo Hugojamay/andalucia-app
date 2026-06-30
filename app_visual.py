@@ -1,6 +1,5 @@
 import streamlit as st
 from datetime import datetime
-import urllib.parse
 import pandas as pd
 import requests
 
@@ -13,54 +12,41 @@ class Cliente:
         self.Tel_Correo = Tel_Correo
         self.Precio_Especial = Precio_Especial
         self.Cantidad_Frasco = Cantidad_Frasco
-        # Validación robusta de fecha
-        if Fecha_Compra and str(Fecha_Compra).strip() != "":
-            if isinstance(Fecha_Compra, str):
-                try:
-                    fecha_limpia = Fecha_Compra.split(".")[0].strip()
-                    self.Fecha_Compra = datetime.strptime(fecha_limpia, "%Y-%m-%d %H:%M:%S")
-                except:
-                    try:
-                        self.Fecha_Compra = datetime.strptime(Fecha_Compra.split(" ")[0].strip(), "%Y-%m-%d")
-                    except:
-                        self.Fecha_Compra = datetime.now()
-            else:
-                self.Fecha_Compra = Fecha_Compra
+        
+        # Validación de fecha robusta
+        if Fecha_Compra and str(Fecha_Compra).strip():
+            try:
+                self.Fecha_Compra = pd.to_datetime(Fecha_Compra)
+            except:
+                self.Fecha_Compra = datetime.now()
         else:
             self.Fecha_Compra = datetime.now()
 
 # ==========================================
 # 2. FUNCIONES DE CONEXIÓN
 # ==========================================
-@st.cache_data(ttl=60, show_spinner=False)
+# Usamos un cache más simple para evitar problemas de serialización
+@st.cache_data(ttl=60)
 def cargar_clientes_nube():
     try:
         url_csv = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqDrMcAlzp02km9pBIMls0I8OxKgRMySxN5GhbWgd08nj6sj5hn8BstFTti5go4g7T6x1NsHUUU_BE/pub?output=csv"
         df = pd.read_csv(url_csv, keep_default_na=False)
         if df.empty: return []
         
-        df.columns = [str(c).strip().upper() for c in df.columns]
+        # Convertir a lista de diccionarios primero para evitar errores de serialización de objetos
+        data = df.to_dict('records')
         clientes = []
-        for index, row in df.iterrows():
-            nombre_val = str(row.get('NOMBRE', '')).strip()
-            # Saltamos filas de encabezado o vacías
-            if nombre_val == "" or nombre_val.upper() == "NOMBRE": continue
+        for row in data:
+            nombre = str(row.get('NOMBRE', '')).strip()
+            if not nombre or nombre.upper() == "NOMBRE": continue
             
-            # Conversión segura de números
-            try:
-                precio = int(float(row.get('PRECIO', 0) or 0))
-                cantidad = int(float(row.get('CANTIDAD', 1) or 1))
-            except:
-                precio, cantidad = 0, 1
-                
-            c = Cliente(
-                Nombre_Cliente=nombre_val,
+            clientes.append(Cliente(
+                Nombre_Cliente=nombre,
                 Tel_Correo=str(row.get('TELEFONO', '')).strip(),
-                Precio_Especial=precio,
-                Cantidad_Frasco=cantidad,
-                Fecha_Compra=str(row.get('FECHA', ''))
-            )
-            clientes.append(c)
+                Precio_Especial=float(row.get('PRECIO', 0) or 0),
+                Cantidad_Frasco=float(row.get('CANTIDAD', 1) or 1),
+                Fecha_Compra=row.get('FECHA', '')
+            ))
         return clientes
     except:
         return []
@@ -68,8 +54,7 @@ def cargar_clientes_nube():
 def registrar_cliente_script(nombre, telefono, precio, cantidad):
     try:
         url_script = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        payload = {"nombre": nombre, "telefono": telefono, "precio": precio, "cantidad": cantidad}
-        response = requests.post(url_script, json=payload, timeout=10)
+        response = requests.post(url_script, json={"nombre": nombre, "telefono": telefono, "precio": precio, "cantidad": cantidad}, timeout=10)
         return response.status_code == 200
     except: return False
 
@@ -78,7 +63,7 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
 # ==========================================
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 
-# Encabezado (sin errores de HTML)
+# Encabezado corregido para evitar errores de renderizado
 st.markdown("""<div style="background-color: #798670; padding: 20px; border-radius: 10px; text-align: center; color: white;">
 <h1>ANDALUCÍA BEAUTY</h1></div>""", unsafe_html=True)
 
@@ -99,39 +84,25 @@ with tab2:
     
     if lista_clientes:
         hoy = datetime.now()
-        meses_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-        nombre_mes = meses_es[hoy.month]
         
-        # Reportes con manejo de errores si la lista estuviera vacía
+        # Filtros con manejo de seguridad
         ventas_mes = [c for c in lista_clientes if c.Fecha_Compra.month == hoy.month and c.Fecha_Compra.year == hoy.year]
         total_frascos = sum(c.Cantidad_Frasco for c in ventas_mes)
         total_dinero = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_mes)
         
-        st.subheader(f"📈 Ventas de {nombre_mes} {hoy.year}")
+        st.subheader(f"📈 Ventas Mensuales")
         c1, c2 = st.columns(2)
-        c1.metric("Frascos", total_frascos)
-        c2.metric("Ingresos", f"${total_dinero:,}")
+        c1.metric("Frascos", int(total_frascos))
+        c2.metric("Ingresos", f"${total_dinero:,.2f}")
         
-        st.divider()
-        
-        ventas_anuales = [c for c in lista_clientes if c.Fecha_Compra.year == hoy.year]
-        total_f_anual = sum(c.Cantidad_Frasco for c in ventas_anuales)
-        total_d_anual = sum(c.Precio_Especial * c.Cantidad_Frasco for c in ventas_anuales)
-        
-        st.subheader(f"🏆 Ventas Acumuladas {hoy.year}")
-        a1, a2 = st.columns(2)
-        a1.metric("Frascos Año", total_f_anual)
-        a2.metric("Ingresos Año", f"${total_d_anual:,}")
         st.divider()
 
-        # --- LISTA DE SEGUIMIENTO ---
         for cliente in lista_clientes:
-            dias_pasados = (datetime.now() - cliente.Fecha_Compra).days
+            dias = (datetime.now() - cliente.Fecha_Compra).days
             st.write(f"### 👤 {cliente.Nombre_Cliente}")
-            st.write(f"Hace {dias_pasados} días | **{cliente.Cantidad_Frasco} frascos**")
+            st.write(f"Hace {max(0, dias)} días | **{int(cliente.Cantidad_Frasco)} frascos**")
             link = f"https://wa.me/{cliente.Tel_Correo}?text=Hola+{cliente.Nombre_Cliente}%2C+¿cómo+va+tu+tratamiento+con+Andalucía+Beauty%3F"
             st.link_button("💬 WhatsApp", link)
             st.divider()
     else:
-        st.warning("Cargando datos o no hay registros aún...")
+        st.info("No se pudieron cargar los datos o la lista está vacía.")
