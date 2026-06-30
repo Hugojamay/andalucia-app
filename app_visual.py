@@ -31,7 +31,7 @@ class Cliente:
 # ==========================================
 # 2. FUNCIONES DE CONEXIÓN
 # ==========================================
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60, show_spinner=False)
 def cargar_clientes_nube():
     try:
         url_csv = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqDrMcAlzp02km9pBIMls0I8OxKgRMySxN5GhbWgd08nj6sj5hn8BstFTti5go4g7T6x1NsHUUU_BE/pub?output=csv"
@@ -69,7 +69,7 @@ def registrar_cliente_script(nombre, telefono, precio, cantidad):
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 
 st.markdown("""<div style="background-color: #798670; padding: 20px; border-radius: 10px; text-align: center; color: white;">
-<h1>ANDALUCÍA BEAUTY</h1></div>""", unsafe_allow_html=True)
+<h1>ANDALUCÍA BEAUTY</h1></div>""", unsafe_html=True)
 
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Reportes y Seguimiento"])
 
