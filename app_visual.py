@@ -32,12 +32,12 @@ def cargar_clientes_nube():
     except: 
         return []
 
-# INTERFAZ MEJORADA
+# INTERFAZ
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 
-# Título llamativo con un emoji y estilo
-st.markdown("<h1 style='text-align: center; color: #d63384;'>✨ ANDALUCÍA BEAUTY ✨</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Gestión de ventas y seguimiento de clientes</p>", unsafe_allow_html=True)
+# Título llamativo en gris
+st.markdown("<h1 style='text-align: center; color: #555555;'>✨ ANDALUCÍA BEAUTY ✨</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #777777;'>Gestión de ventas y seguimiento de clientes</p>", unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Reportes y Seguimiento"])
 
@@ -56,26 +56,40 @@ with tab2:
     if lista:
         hoy = datetime.now()
         
-        # Lógica de cálculo (Sin cambios, tal cual la tenías)
-        ventas_mes = [x for x in lista if x.Fecha_Compra.month == hoy.month and x.Fecha_Compra.year == hoy.year]
+        # --- Selector de Mes y Año ---
+        meses_espanol = {
+            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+            7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+        }
+        
+        col_sel1, col_sel2 = st.columns(2)
+        with col_sel1:
+            mes_nombre = st.selectbox("Selecciona el mes:", list(meses_espanol.values()), index=hoy.month-1)
+        with col_sel2:
+            anio_sel = st.number_input("Año:", value=hoy.year, step=1)
+            
+        mes_num = [k for k, v in meses_espanol.items() if v == mes_nombre][0]
+        
+        # Lógica de cálculo (Filtrada por lo que elijas arriba)
+        ventas_mes = [x for x in lista if x.Fecha_Compra.month == mes_num and x.Fecha_Compra.year == anio_sel]
         frascos_mes = sum(x.Cantidad_Frasco for x in ventas_mes)
         dinero_mes = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_mes)
         
-        ventas_anio = [x for x in lista if x.Fecha_Compra.year == hoy.year]
+        ventas_anio = [x for x in lista if x.Fecha_Compra.year == anio_sel]
         frascos_anio = sum(x.Cantidad_Frasco for x in ventas_anio)
         dinero_anio = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_anio)
         
-        # Visualización mejorada
-        st.subheader(f"Resumen de {hoy.strftime('%B')}")
+        # Visualización
+        st.markdown(f"<h3 style='color: #555555;'>📊 Resumen de {mes_nombre} {anio_sel}</h3>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
-            st.metric(f"Ventas: {hoy.strftime('%B')}", frascos_mes)
+            st.metric("Frascos vendidos", frascos_mes)
         with col2:
-            st.metric(f"Ingresos: {hoy.strftime('%B')}", f"${dinero_mes:,.2f}")
+            st.metric("Ingresos", f"${dinero_mes:,.2f}")
             
         st.markdown("---")
         
-        st.subheader(f"Acumulado Anual ({hoy.year})")
+        st.markdown(f"<h3 style='color: #555555;'>📈 Acumulado Anual ({anio_sel})</h3>", unsafe_allow_html=True)
         col3, col4 = st.columns(2)
         with col3:
             st.metric("Total Frascos Año", frascos_anio)
@@ -86,7 +100,6 @@ with tab2:
         st.subheader("🕒 Historial de Seguimiento")
         for cli in lista:
             dias = (hoy - cli.Fecha_Compra).days
-            color = "orange" if dias >= 15 else "blue"
             with st.expander(f"👤 {cli.Nombre_Cliente} - Hace {dias} días"):
                 st.write(f"**Cantidad:** {cli.Cantidad_Frasco} frascos | **Precio:** ${cli.Precio_Especial:,.2f}")
                 if dias >= 15:
