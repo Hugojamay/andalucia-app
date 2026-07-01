@@ -16,7 +16,7 @@ class Cliente:
 
 def cargar_clientes_nube():
     try:
-        url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqDrMcAlzp02km9pBIMls0I8OxKgRMySxN5GhbWgd08nj6sj5hn8BstFTti5go4g7T6x1NsHUUU_BE/pub?output=csv"
+        url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqDrMcAlzp02km9pBIMls0I8OxKgRMySxN5GhbWgd08nj6sj5hn8BstFTti5go4g7T6x1NsHUUU_BE/pubhtml"
         df = pd.read_csv(url, keep_default_na=False)
         clientes = []
         for _, row in df.iterrows():
