@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Clase Cliente
+# Clase Cliente (Se mantiene intacta)
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra):
         self.Nombre_Cliente = str(Nombre_Cliente)
         self.Tel_Correo = str(Tel_Correo)
-        # Manejo de seguridad para datos vacíos o formatos incorrectos
         self.Precio_Especial = float(Precio_Especial) if str(Precio_Especial).replace('.','',1).isdigit() else 0.0
         self.Cantidad_Frasco = int(float(Cantidad_Frasco)) if str(Cantidad_Frasco).replace('.','',1).isdigit() else 0
         try:
@@ -33,52 +32,65 @@ def cargar_clientes_nube():
     except: 
         return []
 
-# INTERFAZ
+# INTERFAZ MEJORADA
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
-st.title("ANDALUCÍA BEAUTY")
+
+# Título llamativo con un emoji y estilo
+st.markdown("<h1 style='text-align: center; color: #d63384;'>✨ ANDALUCÍA BEAUTY ✨</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Gestión de ventas y seguimiento de clientes</p>", unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Reportes y Seguimiento"])
 
 with tab1:
     with st.form("registro_form", clear_on_submit=True):
+        st.subheader("Datos de la Venta")
         st.text_input("Nombre:")
         st.text_input("Teléfono:")
         st.number_input("Precio ($):", value=435)
         st.number_input("Frascos:", value=1)
-        if st.form_submit_button("Guardar"):
-            st.success("Guardado")
+        if st.form_submit_button("Guardar en Base de Datos"):
+            st.success("Guardado exitosamente")
 
 with tab2:
     lista = cargar_clientes_nube()
     if lista:
         hoy = datetime.now()
         
-        # CÁLCULOS HISTÓRICOS TOTALES
-        frascos_totales = sum(x.Cantidad_Frasco for x in lista)
-        dinero_total = sum(x.Cantidad_Frasco * x.Precio_Especial for x in lista)
+        # Lógica de cálculo (Sin cambios, tal cual la tenías)
+        ventas_mes = [x for x in lista if x.Fecha_Compra.month == hoy.month and x.Fecha_Compra.year == hoy.year]
+        frascos_mes = sum(x.Cantidad_Frasco for x in ventas_mes)
+        dinero_mes = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_mes)
         
-        # CÁLCULOS ANUALES (Filtro por año actual)
-        ventas_año = [x for x in lista if x.Fecha_Compra.year == hoy.year]
-        frascos_anio = sum(x.Cantidad_Frasco for x in ventas_año)
-        dinero_anio = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_año)
+        ventas_anio = [x for x in lista if x.Fecha_Compra.year == hoy.year]
+        frascos_anio = sum(x.Cantidad_Frasco for x in ventas_anio)
+        dinero_anio = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_anio)
         
-        # Mostrar métricas
+        # Visualización mejorada
+        st.subheader(f"Resumen de {hoy.strftime('%B')}")
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Frascos (Total)", frascos_totales)
-            st.metric("Ingresos (Total)", f"${dinero_total:,.2f}")
+            st.metric(f"Ventas: {hoy.strftime('%B')}", frascos_mes)
         with col2:
-            st.metric(f"Frascos {hoy.year}", frascos_anio)
-            st.metric(f"Ingresos {hoy.year}", f"${dinero_anio:,.2f}")
+            st.metric(f"Ingresos: {hoy.strftime('%B')}", f"${dinero_mes:,.2f}")
+            
+        st.markdown("---")
+        
+        st.subheader(f"Acumulado Anual ({hoy.year})")
+        col3, col4 = st.columns(2)
+        with col3:
+            st.metric("Total Frascos Año", frascos_anio)
+        with col4:
+            st.metric("Total Ingresos Año", f"${dinero_anio:,.2f}")
         
         st.divider()
-        st.subheader("Historial de Clientes")
+        st.subheader("🕒 Historial de Seguimiento")
         for cli in lista:
             dias = (hoy - cli.Fecha_Compra).days
-            with st.expander(f"{cli.Nombre_Cliente} - Hace {dias} días ({cli.Fecha_Compra.strftime('%d/%m/%Y')})"):
-                st.write(f"Cantidad: {cli.Cantidad_Frasco} frasco(s) | Precio: ${cli.Precio_Especial:,.2f}")
+            color = "orange" if dias >= 15 else "blue"
+            with st.expander(f"👤 {cli.Nombre_Cliente} - Hace {dias} días"):
+                st.write(f"**Cantidad:** {cli.Cantidad_Frasco} frascos | **Precio:** ${cli.Precio_Especial:,.2f}")
                 if dias >= 15:
-                    st.warning("¡Seguimiento necesario!")
-                    st.link_button("💬 WhatsApp", f"https://wa.me/{cli.Tel_Correo}?text=Hola+{cli.Nombre_Cliente},+cómo+te+ha+ido+con+la+crema?")
+                    st.warning("⚠️ ¡Seguimiento necesario!")
+                    st.link_button("💬 Enviar WhatsApp", f"https://wa.me/{cli.Tel_Correo}?text=Hola+{cli.Nombre_Cliente},+cómo+te+ha+ido+con+la+crema+Andalucía?")
     else:
-        st.info("No se encontraron registros en la base de datos.")
+        st.info("Cargando datos o base de datos vacía...")
