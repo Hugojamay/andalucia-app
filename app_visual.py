@@ -49,32 +49,31 @@ with tab1:
     
     seleccion = st.selectbox("¿Cliente frecuente? (Selecciona para autocompletar)", [""] + nombres_ordenados)
     
+    # Valores por defecto para el formulario
+    def_nombre = ""
+    def_tel = ""
+    def_precio = 435.0
+    def_cant = 1
+    
     if seleccion:
         cli = mapa_clientes[seleccion]
-        st.session_state.nombre_val = cli.Nombre_Cliente
-        st.session_state.tel_val = cli.Tel_Correo
-        st.session_state.precio_val = cli.Precio_Especial
-    else:
-        # Valores por defecto si no hay selección
-        if "nombre_val" not in st.session_state: st.session_state.nombre_val = ""
-        if "tel_val" not in st.session_state: st.session_state.tel_val = ""
-        if "precio_val" not in st.session_state: st.session_state.precio_val = 435.0
-        if "cant_val" not in st.session_state: st.session_state.cant_val = 1
+        def_nombre = cli.Nombre_Cliente
+        def_tel = cli.Tel_Correo
+        def_precio = cli.Precio_Especial
 
     with st.form("registro_form", clear_on_submit=False):
-        st.text_input("Nombre:", key="nombre_val")
-        st.text_input("Teléfono:", key="tel_val")
-        st.number_input("Precio ($):", key="precio_val")
-        st.number_input("Frascos:", value=1, key="cant_val")
+        nombre = st.text_input("Nombre:", value=def_nombre)
+        telefono = st.text_input("Teléfono:", value=def_tel)
+        precio = st.number_input("Precio ($):", value=float(def_precio))
+        cantidad = st.number_input("Frascos:", value=def_cant)
         
         if st.form_submit_button("Guardar en Base de Datos"):
-            # URL generada con tus IDs reales
             url_base = "https://docs.google.com/forms/d/e/1FAIpQLSeNrfgmi0FDk1Y9IeuhOnwP-pzDXjX7SMieZeZr6ajjlQLLow/viewform?usp=pp_url"
             link = (f"{url_base}"
-                    f"&entry.295001426={st.session_state.nombre_val}"
-                    f"&entry.1284683403={st.session_state.tel_val}"
-                    f"&entry.1564218932={st.session_state.precio_val}"
-                    f"&entry.962058671={st.session_state.cant_val}")
+                    f"&entry.295001426={nombre}"
+                    f"&entry.1284683403={telefono}"
+                    f"&entry.1564218932={precio}"
+                    f"&entry.962058671={cantidad}")
             
             st.markdown(f'<a href="{link}" target="_blank" style="padding: 10px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">✅ Clic aquí para confirmar registro</a>', unsafe_allow_html=True)
 
