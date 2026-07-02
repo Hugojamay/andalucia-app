@@ -3,8 +3,7 @@ import pandas as pd
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-
-# Clase Cliente
+# Clase Cliente (Mantiene tu lógica original)
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra):
         self.Nombre_Cliente = str(Nombre_Cliente)
@@ -19,7 +18,6 @@ class Cliente:
 def cargar_clientes_nube():
     conn = st.connection("gsheets", type=GSheetsConnection)
     try:
-        # Cargamos desde tu pestaña exacta
         df = conn.read(worksheet="Respuestas de formulario 1")
         clientes = []
         for _, row in df.iterrows():
@@ -63,14 +61,10 @@ with tab1:
         
         if st.form_submit_button("Guardar en Base de Datos"):
             conn = st.connection("gsheets", type=GSheetsConnection)
-            # Leer actual para anexar
             df_actual = conn.read(worksheet="Respuestas de formulario 1")
             nuevo_dato = pd.DataFrame([{
-                "NOMBRE": nombre, 
-                "TELEFONO": telefono, 
-                "PRECIO": precio, 
-                "CANTIDAD": cantidad, 
-                "FECHA": datetime.now().strftime("%Y-%m-%d")
+                "NOMBRE": nombre, "TELEFONO": telefono, "PRECIO": precio, 
+                "CANTIDAD": cantidad, "FECHA": datetime.now().strftime("%Y-%m-%d")
             }])
             df_actual = pd.concat([df_actual, nuevo_dato], ignore_index=True)
             conn.update(worksheet="Respuestas de formulario 1", data=df_actual)
@@ -78,10 +72,11 @@ with tab1:
             st.rerun()
 
 with tab2:
-    lista = lista_db
+    lista = cargar_clientes_nube()
     if lista:
         hoy = datetime.now()
         meses_espanol = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
+        
         col_sel1, col_sel2 = st.columns(2)
         with col_sel1:
             mes_nombre = st.selectbox("Selecciona el mes:", list(meses_espanol.values()), index=hoy.month-1)
@@ -97,11 +92,13 @@ with tab2:
         col2.metric("Ingresos", f"${sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_mes):,.2f}")
         
         st.divider()
-        st.subheader("🔍 Buscar historial por cliente")
-        nombres_unicos = sorted(list(set(x.Nombre_Cliente for x in lista)))
-        cliente_buscado = st.selectbox("Selecciona un cliente para ver su historial específico:", [""] + nombres_unicos)
-        if cliente_buscado:
-            for cli in [x for x in lista if x.Nombre_Cliente == cliente_buscado]:
-                st.write(f"📅 {cli.Fecha_Compra.strftime('%d/%m/%Y')} | 📦 {cli.Cantidad_Frasco} frascos | ${cli.Precio_Especial:,.2f}")
+        st.subheader("🕒 Historial de Seguimiento")
+        for cli in lista:
+            dias = (hoy - cli.Fecha_Compra).days
+            with st.expander(f"👤 {cli.Nombre_Cliente} - Hace {dias} días"):
+                st.write(f"**Cantidad:** {cli.Cantidad_Frasco} frascos | **Precio:** ${cli.Precio_Especial:,.2f}")
+                if dias >= 15:
+                    st.warning("⚠️ ¡Seguimiento necesario!")
+                    st.link_button("💬 Enviar WhatsApp", f"https://wa.me/{cli.Tel_Correo}?text=Hola+{cli.Nombre_Cliente},+¿cómo+te+ha+ido+con+la+crema+Andalucía?")
     else:
         st.info("Base de datos vacía o cargando...")
