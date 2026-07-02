@@ -28,14 +28,14 @@ def get_connection():
         spreadsheet_id = url
         
     sh = client.open_by_key(spreadsheet_id)
-    return sh.worksheet("Respuestas de formulario 1")
+    # APUNTAMOS A TU NUEVA PESTAÑA LIMPIA
+    return sh.worksheet("VentasDirectas")
 
 def cargar_clientes_nube():
     try:
         sheet = get_connection()
-        # Se mantienen los headers esperados. Al existir "Marca temporal" en A, 
-        # gspread leerá las columnas B, C, D, E, F como los campos definidos.
-        data = sheet.get_all_records(expected_headers=['', 'NOMBRE', 'TELEFONO', 'PRECIO', 'CANTIDAD', 'FECHA'])
+        # Lectura directa de tu nueva hoja
+        data = sheet.get_all_records()
         df = pd.DataFrame(data)
         clientes = []
         for _, row in df.iterrows():
@@ -80,8 +80,8 @@ with tab1:
         
         if st.form_submit_button("Guardar en Base de Datos"):
             sheet = get_connection()
-            # Se añade un valor vacío "" al inicio para saltar la columna A ("Marca temporal")
-            sheet.append_row(["", nombre, telefono, precio, cantidad, datetime.now().strftime("%Y-%m-%d")])
+            # Guardado directo en las columnas A, B, C, D, E
+            sheet.append_row([nombre, telefono, precio, cantidad, datetime.now().strftime("%Y-%m-%d")])
             st.success("✅ Registro guardado con éxito")
             st.rerun()
 
