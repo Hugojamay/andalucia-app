@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from streamlit_gsheets import GSheetsConnection
 
 # Clase Cliente
 class Cliente:
@@ -15,9 +16,10 @@ class Cliente:
             self.Fecha_Compra = datetime.now()
 
 def cargar_clientes_nube():
+    conn = st.connection("gsheets", type=GSheetsConnection)
     try:
-        url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqDrMcAlzp02km9pBIMls0I8OxKgRMySxN5GhbWgd08nj6sj5hn8BstFTti5go4g7T6x1NsHUUU_BE/pub?output=csv"
-        df = pd.read_csv(url, keep_default_na=False)
+        # Cargamos desde tu pestaña exacta
+        df = conn.read(worksheet="Respuestas de formulario 1")
         clientes = []
         for _, row in df.iterrows():
             if str(row.get('NOMBRE', '')).strip():
@@ -34,7 +36,6 @@ def cargar_clientes_nube():
 
 # INTERFAZ
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
-
 st.markdown("<h1 style='text-align: center; color: #555555;'>✨ ANDALUCÍA BEAUTY ✨</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #777777;'>Gestión de ventas y seguimiento de clientes</p>", unsafe_allow_html=True)
 
@@ -46,46 +47,40 @@ with tab1:
     nombres_ordenados = sorted(list(mapa_clientes.keys()))
 
     st.subheader("Datos de la Venta")
-    
     seleccion = st.selectbox("¿Cliente frecuente? (Selecciona para autocompletar)", [""] + nombres_ordenados)
     
-    # Valores por defecto para el formulario
-    def_nombre = ""
-    def_tel = ""
-    def_precio = 435.0
-    def_cant = 1
-    
+    def_nombre, def_tel, def_precio, def_cant = "", "", 435.0, 1
     if seleccion:
         cli = mapa_clientes[seleccion]
-        def_nombre = cli.Nombre_Cliente
-        def_tel = cli.Tel_Correo
-        def_precio = cli.Precio_Especial
+        def_nombre, def_tel, def_precio = cli.Nombre_Cliente, cli.Tel_Correo, cli.Precio_Especial
 
-    with st.form("registro_form", clear_on_submit=False):
+    with st.form("registro_form", clear_on_submit=True):
         nombre = st.text_input("Nombre:", value=def_nombre)
         telefono = st.text_input("Teléfono:", value=def_tel)
         precio = st.number_input("Precio ($):", value=float(def_precio))
         cantidad = st.number_input("Frascos:", value=def_cant)
         
         if st.form_submit_button("Guardar en Base de Datos"):
-            url_base = "https://docs.google.com/forms/d/e/1FAIpQLSeNrfgmi0FDk1Y9IeuhOnwP-pzDXjX7SMieZeZr6ajjlQLLow/viewform?usp=pp_url"
-            link = (f"{url_base}"
-                    f"&entry.295001426={nombre}"
-                    f"&entry.1284683403={telefono}"
-                    f"&entry.1564218932={precio}"
-                    f"&entry.962058671={cantidad}")
-            
-            st.markdown(f'<a href="{link}" target="_blank" style="padding: 10px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">✅ Clic aquí para confirmar registro</a>', unsafe_allow_html=True)
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            # Leer actual para anexar
+            df_actual = conn.read(worksheet="Respuestas de formulario 1")
+            nuevo_dato = pd.DataFrame([{
+                "NOMBRE": nombre, 
+                "TELEFONO": telefono, 
+                "PRECIO": precio, 
+                "CANTIDAD": cantidad, 
+                "FECHA": datetime.now().strftime("%Y-%m-%d")
+            }])
+            df_actual = pd.concat([df_actual, nuevo_dato], ignore_index=True)
+            conn.update(worksheet="Respuestas de formulario 1", data=df_actual)
+            st.success("✅ Registro guardado con éxito")
+            st.rerun()
 
 with tab2:
     lista = lista_db
     if lista:
         hoy = datetime.now()
-        meses_espanol = {
-            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
-            7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
-        }
-        
+        meses_espanol = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
         col_sel1, col_sel2 = st.columns(2)
         with col_sel1:
             mes_nombre = st.selectbox("Selecciona el mes:", list(meses_espanol.values()), index=hoy.month-1)
@@ -93,45 +88,19 @@ with tab2:
             anio_sel = st.number_input("Año:", value=hoy.year, step=1)
             
         mes_num = [k for k, v in meses_espanol.items() if v == mes_nombre][0]
-        
         ventas_mes = [x for x in lista if x.Fecha_Compra.month == mes_num and x.Fecha_Compra.year == anio_sel]
-        frascos_mes = sum(x.Cantidad_Frasco for x in ventas_mes)
-        dinero_mes = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_mes)
-        
-        ventas_anio = [x for x in lista if x.Fecha_Compra.year == anio_sel]
-        frascos_anio = sum(x.Cantidad_Frasco for x in ventas_anio)
-        dinero_anio = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_anio)
         
         st.markdown(f"<h3 style='color: #555555;'>📊 Resumen de {mes_nombre} {anio_sel}</h3>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
-        col1.metric("Frascos vendidos", frascos_mes)
-        col2.metric("Ingresos", f"${dinero_mes:,.2f}")
-            
-        st.markdown("---")
-        st.markdown(f"<h3 style='color: #555555;'>📈 Acumulado Anual ({anio_sel})</h3>", unsafe_allow_html=True)
-        col3, col4 = st.columns(2)
-        col3.metric("Total Frascos Año", frascos_anio)
-        col4.metric("Total Ingresos Año", f"${dinero_anio:,.2f}")
+        col1.metric("Frascos", sum(x.Cantidad_Frasco for x in ventas_mes))
+        col2.metric("Ingresos", f"${sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_mes):,.2f}")
         
         st.divider()
         st.subheader("🔍 Buscar historial por cliente")
         nombres_unicos = sorted(list(set(x.Nombre_Cliente for x in lista)))
         cliente_buscado = st.selectbox("Selecciona un cliente para ver su historial específico:", [""] + nombres_unicos)
-
         if cliente_buscado:
-            historial_cliente = [x for x in lista if x.Nombre_Cliente == cliente_buscado]
-            for cli in historial_cliente:
-                fecha_str = cli.Fecha_Compra.strftime("%d/%m/%Y")
-                st.write(f"📅 **Fecha:** {fecha_str} | 📦 **Cantidad:** {cli.Cantidad_Frasco} frascos | **Precio:** ${cli.Precio_Especial:,.2f}")
-        
-        st.divider()
-        st.subheader("🕒 Historial de Seguimiento")
-        for cli in lista:
-            dias = (hoy - cli.Fecha_Compra).days
-            with st.expander(f"👤 {cli.Nombre_Cliente} - Hace {dias} días"):
-                st.write(f"**Cantidad:** {cli.Cantidad_Frasco} frascos | **Precio:** ${cli.Precio_Especial:,.2f}")
-                if dias >= 15:
-                    st.warning("⚠️ ¡Seguimiento necesario!")
-                    st.link_button("💬 Enviar WhatsApp", f"https://wa.me/{cli.Tel_Correo}?text=Hola+{cli.Nombre_Cliente},+cómo+te+ha+ido+con+la+crema+Andalucía?")
+            for cli in [x for x in lista if x.Nombre_Cliente == cliente_buscado]:
+                st.write(f"📅 {cli.Fecha_Compra.strftime('%d/%m/%Y')} | 📦 {cli.Cantidad_Frasco} frascos | ${cli.Precio_Especial:,.2f}")
     else:
-        st.info("Cargando datos o base de datos vacía...")
+        st.info("Base de datos vacía o cargando...")
