@@ -114,6 +114,17 @@ with tab2:
         col4.metric("Total Ingresos Año", f"${dinero_anio:,.2f}")
         
         st.divider()
+        st.subheader("🔍 Buscar historial por cliente")
+        nombres_unicos = sorted(list(set(x.Nombre_Cliente for x in lista)))
+        cliente_buscado = st.selectbox("Selecciona un cliente para ver su historial específico:", [""] + nombres_unicos)
+
+        if cliente_buscado:
+            historial_cliente = [x for x in lista if x.Nombre_Cliente == cliente_buscado]
+            for cli in historial_cliente:
+                fecha_str = cli.Fecha_Compra.strftime("%d/%m/%Y")
+                st.write(f"📅 **Fecha:** {fecha_str} | 📦 **Cantidad:** {cli.Cantidad_Frasco} frascos | **Precio:** ${cli.Precio_Especial:,.2f}")
+        
+        st.divider()
         st.subheader("🕒 Historial de Seguimiento")
         for cli in lista:
             dias = (hoy - cli.Fecha_Compra).days
