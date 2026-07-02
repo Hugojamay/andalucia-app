@@ -4,7 +4,7 @@ from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Clase Cliente (Mantiene tu lógica original)
+# Clase Cliente
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra):
         self.Nombre_Cliente = str(Nombre_Cliente)
@@ -17,11 +17,12 @@ class Cliente:
             self.Fecha_Compra = datetime.now()
 
 def get_connection():
-    # Configuración de credenciales usando gspread
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
     client = gspread.authorize(creds)
-    return client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet"]).sheet1
+    # Cambiado para abrir la pestaña específica que contiene tus datos
+    sh = client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet"])
+    return sh.worksheet("Respuestas de formulario 1")
 
 def cargar_clientes_nube():
     try:
@@ -39,7 +40,9 @@ def cargar_clientes_nube():
                     row.get('FECHA', datetime.now())
                 ))
         return clientes
-    except: 
+    except Exception as e:
+        # Esto te mostrará el error real si algo falla
+        st.error(f"Error al cargar base de datos: {e}")
         return []
 
 # INTERFAZ
