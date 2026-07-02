@@ -17,13 +17,17 @@ class Cliente:
             self.Fecha_Compra = datetime.now()
 
 def get_connection():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
-    client = gspread.authorize(creds)
-    # Usamos la URL tal como la tienes configurada en secrets
-    url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-    sh = client.open_by_url(url)
-    return sh.worksheet("Respuestas de formulario 1")
+    try:
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
+        client = gspread.authorize(creds)
+        url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        sh = client.open_by_url(url)
+        return sh.worksheet("Respuestas de formulario 1")
+    except Exception as e:
+        # Esto forzará que el error se escriba, aunque sea un problema de credenciales
+        st.error(f"DEBUG ERROR: {type(e).__name__} - {str(e)}")
+        raise e # Esto detiene el programa para ver el error completo
 
 def cargar_clientes_nube():
     try:
