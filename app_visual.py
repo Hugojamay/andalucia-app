@@ -20,15 +20,12 @@ def get_connection():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
     client = gspread.authorize(creds)
-    
-    # CORRECCIÓN: Usar open_by_url en lugar de open_by_key para mayor compatibilidad
+    # Usamos la URL tal como la tienes configurada en secrets
     url = st.secrets["connections"]["gsheets"]["spreadsheet"]
     sh = client.open_by_url(url)
-    
-    # Abrir por nombre de hoja
     return sh.worksheet("Respuestas de formulario 1")
 
- def cargar_clientes_nube():
+def cargar_clientes_nube():
     try:
         sheet = get_connection()
         data = sheet.get_all_records()
@@ -45,8 +42,10 @@ def get_connection():
                 ))
         return clientes
     except Exception as e:
+        # Esto te mostrará el error técnico real si la hoja no existe o hay error de permisos
         st.error(f"Error técnico detallado: {str(e)}")
         return []
+
 # INTERFAZ
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #555555;'>✨ ANDALUCÍA BEAUTY ✨</h1>", unsafe_allow_html=True)
