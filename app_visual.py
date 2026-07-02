@@ -18,9 +18,9 @@ class Cliente:
 
 def get_connection():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    # Ahora pasamos el diccionario directamente
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
     client = gspread.authorize(creds)
-    # Cambiado para abrir la pestaña específica que contiene tus datos
     sh = client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet"])
     return sh.worksheet("Respuestas de formulario 1")
 
