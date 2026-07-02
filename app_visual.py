@@ -28,7 +28,7 @@ def get_connection():
     # Abrir por nombre de hoja
     return sh.worksheet("Respuestas de formulario 1")
 
-def cargar_clientes_nube():
+ def cargar_clientes_nube():
     try:
         sheet = get_connection()
         data = sheet.get_all_records()
@@ -45,7 +45,8 @@ def cargar_clientes_nube():
                 ))
         return clientes
     except Exception as e:
-        st.error(f"Error al cargar base de datos: {e}")
+        # Esto nos dirá exactamente qué está fallando (nombre de hoja, permisos, etc.)
+        st.error(f"Error técnico detallado: {str(e)}")
         return []
 
 # INTERFAZ
