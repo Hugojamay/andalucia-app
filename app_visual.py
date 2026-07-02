@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from streamlit_gsheets import GSheetsConnection
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Clase Cliente (Mantiene tu lógica original)
 class Cliente:
@@ -15,10 +16,18 @@ class Cliente:
         except:
             self.Fecha_Compra = datetime.now()
 
+def get_connection():
+    # Configuración de credenciales usando gspread
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
+    client = gspread.authorize(creds)
+    return client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet"]).sheet1
+
 def cargar_clientes_nube():
-    conn = st.connection("gsheets", type=GSheetsConnection)
     try:
-        df = conn.read(worksheet="Respuestas de formulario 1")
+        sheet = get_connection()
+        data = sheet.get_all_records()
+        df = pd.DataFrame(data)
         clientes = []
         for _, row in df.iterrows():
             if str(row.get('NOMBRE', '')).strip():
@@ -60,14 +69,8 @@ with tab1:
         cantidad = st.number_input("Frascos:", value=def_cant)
         
         if st.form_submit_button("Guardar en Base de Datos"):
-            conn = st.connection("gsheets", type=GSheetsConnection)
-            df_actual = conn.read(worksheet="Respuestas de formulario 1")
-            nuevo_dato = pd.DataFrame([{
-                "NOMBRE": nombre, "TELEFONO": telefono, "PRECIO": precio, 
-                "CANTIDAD": cantidad, "FECHA": datetime.now().strftime("%Y-%m-%d")
-            }])
-            df_actual = pd.concat([df_actual, nuevo_dato], ignore_index=True)
-            conn.update(worksheet="Respuestas de formulario 1", data=df_actual)
+            sheet = get_connection()
+            sheet.append_row([nombre, telefono, precio, cantidad, datetime.now().strftime("%Y-%m-%d")])
             st.success("✅ Registro guardado con éxito")
             st.rerun()
 
