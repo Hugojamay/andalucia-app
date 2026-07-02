@@ -21,7 +21,6 @@ def get_connection():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
     client = gspread.authorize(creds)
     
-    # Corrección: Extraer el ID de la URL automáticamente para evitar errores
     url = st.secrets["connections"]["gsheets"]["spreadsheet"]
     if "/d/" in url:
         spreadsheet_id = url.split("/d/")[1].split("/")[0]
@@ -34,8 +33,9 @@ def get_connection():
 def cargar_clientes_nube():
     try:
         sheet = get_connection()
-        # Definimos los encabezados esperados para evitar el error de duplicados
-        data = sheet.get_all_records(expected_headers=['NOMBRE', 'TELEFONO', 'PRECIO', 'CANTIDAD', 'FECHA'])
+        # Se mantienen los headers esperados. Al existir "Marca temporal" en A, 
+        # gspread leerá las columnas B, C, D, E, F como los campos definidos.
+        data = sheet.get_all_records(expected_headers=['', 'NOMBRE', 'TELEFONO', 'PRECIO', 'CANTIDAD', 'FECHA'])
         df = pd.DataFrame(data)
         clientes = []
         for _, row in df.iterrows():
@@ -80,7 +80,8 @@ with tab1:
         
         if st.form_submit_button("Guardar en Base de Datos"):
             sheet = get_connection()
-            sheet.append_row([nombre, telefono, precio, cantidad, datetime.now().strftime("%Y-%m-%d")])
+            # Se añade un valor vacío "" al inicio para saltar la columna A ("Marca temporal")
+            sheet.append_row(["", nombre, telefono, precio, cantidad, datetime.now().strftime("%Y-%m-%d")])
             st.success("✅ Registro guardado con éxito")
             st.rerun()
 
