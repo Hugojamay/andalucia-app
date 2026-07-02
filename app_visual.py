@@ -17,17 +17,19 @@ class Cliente:
             self.Fecha_Compra = datetime.now()
 
 def get_connection():
-    try:
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
-        client = gspread.authorize(creds)
-        url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        sh = client.open_by_url(url)
-        return sh.worksheet("Respuestas de formulario 1")
-    except Exception as e:
-        # Esto forzará que el error se escriba, aunque sea un problema de credenciales
-        st.error(f"DEBUG ERROR: {type(e).__name__} - {str(e)}")
-        raise e # Esto detiene el programa para ver el error completo
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
+    client = gspread.authorize(creds)
+    
+    # Corrección: Extraer el ID de la URL automáticamente para evitar errores
+    url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    if "/d/" in url:
+        spreadsheet_id = url.split("/d/")[1].split("/")[0]
+    else:
+        spreadsheet_id = url
+        
+    sh = client.open_by_key(spreadsheet_id)
+    return sh.worksheet("Respuestas de formulario 1")
 
 def cargar_clientes_nube():
     try:
@@ -46,7 +48,6 @@ def cargar_clientes_nube():
                 ))
         return clientes
     except Exception as e:
-        # Esto te mostrará el error técnico real si la hoja no existe o hay error de permisos
         st.error(f"Error técnico detallado: {str(e)}")
         return []
 
