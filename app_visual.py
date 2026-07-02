@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Clase Cliente (Se mantiene intacta)
+# Clase Cliente
 class Cliente:
     def __init__(self, Nombre_Cliente, Tel_Correo, Precio_Especial, Cantidad_Frasco, Fecha_Compra):
         self.Nombre_Cliente = str(Nombre_Cliente)
@@ -35,28 +35,46 @@ def cargar_clientes_nube():
 # INTERFAZ
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 
-# Título llamativo en gris
 st.markdown("<h1 style='text-align: center; color: #555555;'>✨ ANDALUCÍA BEAUTY ✨</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #777777;'>Gestión de ventas y seguimiento de clientes</p>", unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["📝 Registrar Cliente", "📊 Reportes y Seguimiento"])
 
 with tab1:
+    lista_db = cargar_clientes_nube()
+    # Crear un diccionario para búsqueda rápida: {nombre: último_cliente_objeto}
+    mapa_clientes = {cli.Nombre_Cliente: cli for cli in lista_db}
+    nombres_ordenados = sorted(list(mapa_clientes.keys()))
+
+    st.subheader("Datos de la Venta")
+    
+    # Selector de cliente existente
+    seleccion = st.selectbox("¿Cliente frecuente? (Selecciona para autocompletar)", [""] + nombres_ordenados)
+    
+    # Lógica de precarga
+    if seleccion:
+        cli = mapa_clientes[seleccion]
+        st.session_state.nombre_val = cli.Nombre_Cliente
+        st.session_state.tel_val = cli.Tel_Correo
+        st.session_state.precio_val = cli.Precio_Especial
+    else:
+        st.session_state.nombre_val = ""
+        st.session_state.tel_val = ""
+        st.session_state.precio_val = 435.0
+
     with st.form("registro_form", clear_on_submit=True):
-        st.subheader("Datos de la Venta")
-        st.text_input("Nombre:")
-        st.text_input("Teléfono:")
-        st.number_input("Precio ($):", value=435)
-        st.number_input("Frascos:", value=1)
+        st.text_input("Nombre:", key="nombre_val")
+        st.text_input("Teléfono:", key="tel_val")
+        st.number_input("Precio ($):", key="precio_val")
+        st.number_input("Frascos:", value=1, key="cant_val")
+        
         if st.form_submit_button("Guardar en Base de Datos"):
-            st.success("Guardado exitosamente")
+            st.success(f"Guardado exitosamente para {st.session_state.nombre_val}")
 
 with tab2:
-    lista = cargar_clientes_nube()
+    lista = lista_db # Usamos la lista ya cargada
     if lista:
         hoy = datetime.now()
-        
-        # --- Selector de Mes y Año ---
         meses_espanol = {
             1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
             7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
@@ -70,7 +88,6 @@ with tab2:
             
         mes_num = [k for k, v in meses_espanol.items() if v == mes_nombre][0]
         
-        # Lógica de cálculo (Filtrada por lo que elijas arriba)
         ventas_mes = [x for x in lista if x.Fecha_Compra.month == mes_num and x.Fecha_Compra.year == anio_sel]
         frascos_mes = sum(x.Cantidad_Frasco for x in ventas_mes)
         dinero_mes = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_mes)
@@ -79,22 +96,16 @@ with tab2:
         frascos_anio = sum(x.Cantidad_Frasco for x in ventas_anio)
         dinero_anio = sum(x.Cantidad_Frasco * x.Precio_Especial for x in ventas_anio)
         
-        # Visualización
         st.markdown(f"<h3 style='color: #555555;'>📊 Resumen de {mes_nombre} {anio_sel}</h3>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Frascos vendidos", frascos_mes)
-        with col2:
-            st.metric("Ingresos", f"${dinero_mes:,.2f}")
+        col1.metric("Frascos vendidos", frascos_mes)
+        col2.metric("Ingresos", f"${dinero_mes:,.2f}")
             
         st.markdown("---")
-        
         st.markdown(f"<h3 style='color: #555555;'>📈 Acumulado Anual ({anio_sel})</h3>", unsafe_allow_html=True)
         col3, col4 = st.columns(2)
-        with col3:
-            st.metric("Total Frascos Año", frascos_anio)
-        with col4:
-            st.metric("Total Ingresos Año", f"${dinero_anio:,.2f}")
+        col3.metric("Total Frascos Año", frascos_anio)
+        col4.metric("Total Ingresos Año", f"${dinero_anio:,.2f}")
         
         st.divider()
         st.subheader("🕒 Historial de Seguimiento")
