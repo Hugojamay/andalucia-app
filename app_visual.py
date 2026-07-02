@@ -18,10 +18,14 @@ class Cliente:
 
 def get_connection():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    # Ahora pasamos el diccionario directamente
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["connections"]["gsheets"], scope)
     client = gspread.authorize(creds)
-    sh = client.open_by_key(st.secrets["connections"]["gsheets"]["spreadsheet"])
+    
+    # CORRECCIÓN: Usar open_by_url en lugar de open_by_key para mayor compatibilidad
+    url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+    sh = client.open_by_url(url)
+    
+    # Abrir por nombre de hoja
     return sh.worksheet("Respuestas de formulario 1")
 
 def cargar_clientes_nube():
@@ -41,7 +45,6 @@ def cargar_clientes_nube():
                 ))
         return clientes
     except Exception as e:
-        # Esto te mostrará el error real si algo falla
         st.error(f"Error al cargar base de datos: {e}")
         return []
 
