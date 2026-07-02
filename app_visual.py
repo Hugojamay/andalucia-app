@@ -45,10 +45,8 @@ def get_connection():
                 ))
         return clientes
     except Exception as e:
-        # Esto nos dirá exactamente qué está fallando (nombre de hoja, permisos, etc.)
         st.error(f"Error técnico detallado: {str(e)}")
         return []
-
 # INTERFAZ
 st.set_page_config(page_title="Andalucía Beauty", layout="centered")
 st.markdown("<h1 style='text-align: center; color: #555555;'>✨ ANDALUCÍA BEAUTY ✨</h1>", unsafe_allow_html=True)
