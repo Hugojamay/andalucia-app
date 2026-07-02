@@ -34,7 +34,8 @@ def get_connection():
 def cargar_clientes_nube():
     try:
         sheet = get_connection()
-        data = sheet.get_all_records()
+        # Definimos los encabezados esperados para evitar el error de duplicados
+        data = sheet.get_all_records(expected_headers=['NOMBRE', 'TELEFONO', 'PRECIO', 'CANTIDAD', 'FECHA'])
         df = pd.DataFrame(data)
         clientes = []
         for _, row in df.iterrows():
